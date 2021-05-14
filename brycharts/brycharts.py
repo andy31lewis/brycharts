@@ -257,7 +257,6 @@ class HistogramBars(SVG.GroupObject):
 
 class Histogram(bryaxes.AxesCanvas):
     def __init__(self, parent, gfd, width="95%", height="95%", colour="yellow"):
-        print("gfd", gfd)
         xaxis = bryaxes.Axis(gfd.xMin, gfd.xMax, gfd.label)
         yaxis = bryaxes.Axis(0, gfd.maxFrequencyDensity, "Frequency density")
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis)

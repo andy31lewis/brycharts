@@ -24,7 +24,7 @@ class AxesTextObject(SVG.TextObject):
         self.attrs["transform"] = f"translate({x},{y}) scale({canvas.xScaleFactor},{-canvas.yScaleFactor}) translate({-x},{-y})"
 
 class AxesWrappingTextObject(SVG.WrappingTextObject):
-    def __init__(self, canvas, string="", anchorpoint=(0,0), width, anchorposition=2, fontsize=12):
+    def __init__(self, canvas, string="", anchorpoint=(0,0), width=80, anchorposition=2, fontsize=12):
         super().__init__(canvas, string, anchorpoint, width/canvas.xScaleFactor, anchorposition, fontsize)
         self.anchorPoint = (x, y) = anchorpoint
         #self.style.transform = f"translate({x}px,{y}px) scale({canvas.xScaleFactor},{-canvas.yScaleFactor}) translate({-x}px,{-y}px)"
