@@ -6,7 +6,7 @@ A Brython package for the creation of statistical charts (pie charts, histograms
 
 All software should have a Hello World example. ;-)
 
-Here is a minimalist html file to show the frequency of the letters in HELLOWORLD as a pie chart:
+Here is a minimalist html+Brython file to show the frequency of the letters in HELLOWORLD as a pie chart:
 
 ```html
 <html>
@@ -28,7 +28,7 @@ brycharts.PieChart(document, freqdata)
 
 And here is the result:
 
-
+![Hello world pie chart](./HelloWorld.png)
 
 This example can be seen at http://mathsanswers.org.uk/oddments/brycharts/helloworld.html
 
