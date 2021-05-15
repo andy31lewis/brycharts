@@ -1,0 +1,15 @@
+<html>
+    <head>
+        <script src="https://cdn.jsdelivr.net/npm/brython@3.9.2/brython.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/brython@3.9.2/brython_stdlib.js"></script>
+        <script src="https://cdn.jsdelivr.net/gh/andy31lewis/brycharts@latest/brycharts.brython.js"></script>
+        <script type="text/python">
+from browser import document
+import brycharts
+freqdata = brycharts.FrequencyData(rawdata=list("HELLOWORLD"))
+brycharts.PieChart(document, freqdata)
+        </script>
+    </head>
+    <body id="body" onLoad="brython()">
+    </body>
+</html>

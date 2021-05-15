@@ -18,13 +18,12 @@ class DemoPage(ws.NotebookPage):
         self.viewed = False
         self.chartbox =  ws.ColumnPanel(className="chartcontainer")
         self.description = html.DIV(Class="description")
-        self.datavariable = html.P(Class="boxlabel code")
         self.databox = html.TEXTAREA(Class="databox")
         self.codebox = html.TEXTAREA(Class="codebox")
         self.attach(ws.RowPanel([
             html.DIV([
                 self.description,
-                self.datavariable,
+                html.P("How the data is structured:", Class="boxlabel"),
                 self.databox,
                 html.P("Code to generate the charts:", Class="boxlabel"),
                 self.codebox
@@ -42,8 +41,7 @@ class PieChartPage(DemoPage):
     def __init__(self):
         super().__init__(1, "Pie Charts", "#fafabe")
         self.description.attach(formatted(piecharttext))
-        self.datavariable.attach("continentlist =")
-        self.databox.attach(str(continentlist))
+        self.databox.attach(f"continentlist = {continentlist}")
         self.codebox.attach("""freqdata = brycharts.FrequencyData(rawdata=continentlist)
 brycharts.PieChart(self.chartbox, freqdata, height="45%", usekey=True)
 brycharts.PieChart(self.chartbox, freqdata, height="45%", usekey=False)""")
@@ -59,8 +57,7 @@ class BarChartPage(DemoPage):
     def __init__(self):
         super().__init__(2, "Bar Charts", "#7fffab")
         self.description.attach(formatted(barcharttext))
-        self.datavariable.attach("livingcostdata =")
-        self.databox.attach(str(livingcostdata))
+        self.databox.attach(f"livingcostdata = {livingcostdata}")
         self.codebox.attach("""labelleddatadict = brycharts.LabelledDataDict(livingcostdata, "Cost Index")
 brycharts.StackedBarChart(self.chartbox, labelleddatadict, height="45%")
 brycharts.GroupedBarChart(self.chartbox, labelleddatadict, height="45%")""")
@@ -76,8 +73,7 @@ class LineGraphPage(DemoPage):
     def __init__(self):
         super().__init__(2, "Line Graphs", "#7ff9ff")
         self.description.attach(formatted(linegraphtext))
-        self.datavariable.attach("rentdata =")
-        self.databox.attach(str(rentdata))
+        self.databox.attach(f"rentdata = {rentdata}")
         self.codebox.attach("""paireddatadict = brycharts.PairedDataDict("Year", "Monthly rent (€)", rentdata)
 brycharts.LineGraph(self.chartbox, paireddatadict)""")
 
@@ -91,8 +87,7 @@ class ScattergraphPage(DemoPage):
     def __init__(self):
         super().__init__(2, "Scattergraphs", "#94adf9")
         self.description.attach(formatted(scattergraphtext))
-        self.datavariable.attach("salaryvscostsdata =")
-        self.databox.attach(str(salaryvscostsdata))
+        self.databox.attach(f"salaryvscostsdata = {salaryvscostsdata}")
         self.codebox.attach("""paireddata = brycharts.PairedData("Average Salary Index", "Total Cost of Living Index", salaryvscostsdata)
 brycharts.ScatterGraph(self.chartbox, paireddata, showRegressionLine=True)""")
 
@@ -106,8 +101,7 @@ class BoxPlotPage(DemoPage):
     def __init__(self):
         super().__init__(2, "Box Plots", "#f9a5eb")
         self.description.attach(formatted(boxplottext))
-        self.datavariable.attach("purchasingpowerdict =")
-        self.databox.attach(str(purchasingpowerdict))
+        self.databox.attach(f"purchasingpowerdict = {purchasingpowerdict}")
         self.codebox.attach("""bpdd = brycharts.BoxPlotDataDict("Local Purchasing Power Index", rawdatadict=purchasingpowerdict)
 brycharts.BoxPlotCanvas(self.chartbox, bpdd)""")
 
@@ -121,8 +115,7 @@ class HistogramPage(DemoPage):
     def __init__(self):
         super().__init__(2, "Histograms", "#fff77f")
         self.description.attach(formatted(histogramtext))
-        self.datavariable.attach('USpurchasingpower =')
-        self.databox.attach(str(USpurchasingpower))
+        self.databox.attach(f"USpurchasingpower = {USpurchasingpower}")
         self.codebox.attach("""gfd1 = brycharts.GroupedFrequencyData(label="Total marks", rawdata=USpurchasingpower)
 brycharts.Histogram(self.chartbox, gfd1, height="45%")
 gfd2 = brycharts.GroupedFrequencyData(label="Total marks", rawdata=USpurchasingpower,
@@ -142,8 +135,7 @@ class CumulativeFrequencyPage(DemoPage):
     def __init__(self):
         super().__init__(2, "Cum Freq Graph", "#adff7f")
         self.description.attach(formatted(cumulativefrequencytext))
-        self.datavariable.attach('USpurchasingpower =')
-        self.databox.attach(str(USpurchasingpower))
+        self.databox.attach(f"USpurchasingpower = {USpurchasingpower}")
         self.codebox.attach("""cfd = brycharts.CumulativeFrequencyData(label="Local Purchasing Power Index", rawdata=USpurchasingpower,
 boundaries = [60, 80, 100, 110, 120, 125, 130, 135, 140, 150, 160, 180])
 brycharts.CumulativeFrequencyGraph(self.chartbox, cfd)""")

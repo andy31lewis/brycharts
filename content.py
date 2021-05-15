@@ -1,11 +1,16 @@
 introtext = """
 ## brycharts - Introduction
 
-This is a Brython package for generating statistical graphs.
+This is a Brython package for generating statistical charts.
 The Brython website is at https://brython.info
 brycharts can be found at https://github.com/andy31lewis/brycharts
 
-Clicking on the tabs at the top of this page gives *examples* of the various types of graph which `brycharts` can produce. On the left of each page is a brief description of the graphs, followed by a box showing the data in the **form "fed" to brycharts**, followed by a box showing the code used to draw the graphs (just two lines of code per graph).
+Clicking on the tabs at the top of this page gives examples of the various types of graph which brycharts can produce.
+On the left of each page is:
+
+• a brief description of the graph(s).
+• a box showing how the data for the the graph(s) needs to organised using Python `list`s and/or `dict`s.
+• a box showing the code used to draw the graphs (just two lines of code per graph).
 
 The data illustrated by these graphs is from the Numbeo website https://www.numbeo.com/cost-of-living/
 """
@@ -13,11 +18,11 @@ The data illustrated by these graphs is from the Numbeo website https://www.numb
 piecharttext = """
 ## Pie Charts
 
-The file obtained from Numbeo has data about 540 different cities.  Here is a list of the continents where they are located as shown in the first box below.
+The file obtained from Numbeo has data about 540 different cities.  Data about the continents where they are located has been extracted as a Python `list` as shown in the first box below.
 
-The code in the second box then feeds this list into a `brycharts.FrequencyData` object. Then two `brycharts.PieChart` objects are created in the `chartbox` on the right.
+The code in the second box then feeds this list into a `brycharts.FrequencyData` object. Then two `brycharts.PieChart` objects are created in the `div` on the right (which is called `self.chartbox`).
 
-The first uses a key to show the names of the continents. The second has the names around the chart; note that for this the sectors have been automatically rearranged so that small sectors are not next to each other, to avoid the labels being superimposed.
+The first chart uses a 'key' to show the names of the continents. The second has the names around the chart; note that for this the sectors have been automatically rearranged so that small sectors are not next to each other, to avoid the labels being superimposed.
 """
 
 barcharttext = """
