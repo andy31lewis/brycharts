@@ -68,9 +68,9 @@ These steps are then repeated, but instead of allowing the object to choose its 
 """
 
 cumulativefrequencytext = """
-## Cumulative Frequency Graph
+## Cumulative Percentage Graph
 
 This uses exactly the same data as the Histogram example - see comments there.
 
-This time it is fed into a `brycharts.CumulativeFrequencyData` object, and then displayed as a `brycharts.CumulativeFrequencyGraph`.
+This time it is fed into a `brycharts.CumulativeFrequencyData` object, and then displayed as a `brycharts.CumulativePercentageGraph`.
 """

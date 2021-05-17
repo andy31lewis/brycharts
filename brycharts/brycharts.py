@@ -30,6 +30,16 @@ class PairedData(list):
         self.xMin, self.xMax = min(self.xValues), max(self.xValues)
         self.yMin, self.yMax = min(self.yValues), max(self.yValues)
 
+class LabelledPairedData(dict):
+    def __init__(self, xLabel, yLabel, data):
+        super().__init__(data)
+        self.xLabel = xLabel
+        self.yLabel = yLabel
+        self.xValues = [item[0] for item in data.values()]
+        self.yValues = [item[1] for item in data.values()]
+        self.xMin, self.xMax = min(self.xValues), max(self.xValues)
+        self.yMin, self.yMax = min(self.yValues), max(self.yValues)
+
 class PairedDataDict(dict):
     def __init__(self, xLabel, yLabel, datadict):
         pdd = {key:PairedData(xLabel, yLabel, pd) for (key, pd) in datadict.items()}
@@ -191,7 +201,7 @@ class Bars(SVG.GroupObject):
             self.addObject(SVG.RectangleObject([(barstart, barmaxvalues[i]), (barend,barminvalues[i])], fillcolour=colour))
 
 class BarChart(bryaxes.AxesCanvas):
-    def __init__(self, parent, ld, width="95%", height="95%", colour="yellow", fontsize=16):
+    def __init__(self, parent, ld, title="", width="95%", height="95%", colour="yellow", fontsize=16):
         xaxis = bryaxes.Axis(0, 100*len(ld), label="", showScale=False,
                             showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
         yaxis = bryaxes.Axis(0, ld.maxFrequency, ld.axisLabel)
@@ -203,12 +213,12 @@ class BarChart(bryaxes.AxesCanvas):
         self.fitContents()
 
 class StackedBarChart(bryaxes.AxesCanvas):
-    def __init__(self, parent, ldd, width="95%", height="95%", colours=None, fontsize=16, objid=None):
+    def __init__(self, parent, ldd, title="", width="95%", height="95%", colours=None, fontsize=16, objid=None):
         if not colours: colours = DEFAULT_COLOURS
         xaxis = bryaxes.Axis(0, 100*len(ldd.labels), label="", showScale=False,
                             showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
         yaxis = bryaxes.Axis(0, ldd.maxSum, ldd.axisLabel)
-        super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, objid=objid)
+        super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         for i, key in enumerate(ldd.keys()):
             self.attachObject(Bars(ldd, "stacked", i, key, colours[i]))
         for i in range(len(ldd.labels)):
@@ -223,15 +233,16 @@ class StackedBarChart(bryaxes.AxesCanvas):
                 bryaxes.AxesTextObject(self, key, keypos+(keywidth*1.25,0), anchorposition=7, fontsize=fontsize)
                 ]))
             keypos += (0, keyheight)
+        #if title: self.attachObject(bryaxes.AxesTextObject(self, title, ((xaxis.min+xaxis.max)/2, yaxis.max + keyheight), anchorposition=8, fontsize=fontsize))
         self.fitContents()
 
 class GroupedBarChart(bryaxes.AxesCanvas):
-    def __init__(self, parent, ldd, width="95%", height="95%", colours=None, fontsize=16, objid=None):
+    def __init__(self, parent, ldd, title="", width="95%", height="95%", colours=None, fontsize=16, objid=None):
         if not colours: colours = DEFAULT_COLOURS
         xaxis = bryaxes.Axis(0, 100*len(ldd.labels), label="", showScale=False,
                             showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
         yaxis = bryaxes.Axis(0, ldd.maxValue, ldd.axisLabel)
-        super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis)
+        super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         for i, key in enumerate(ldd.keys()):
             self.attachObject(Bars(ldd, "grouped", i, key, colours[i]))
         for i in range(len(ldd.labels)):
@@ -256,7 +267,7 @@ class HistogramBars(SVG.GroupObject):
             self.addObject(SVG.RectangleObject([(barleft, gfd.frequencyDensities[i]), (barright, 0)], fillcolour=colour))
 
 class Histogram(bryaxes.AxesCanvas):
-    def __init__(self, parent, gfd, width="95%", height="95%", colour="yellow"):
+    def __init__(self, parent, gfd, title="", width="95%", height="95%", colour="yellow"):
         xaxis = bryaxes.Axis(gfd.xMin, gfd.xMax, gfd.label)
         yaxis = bryaxes.Axis(0, gfd.maxFrequencyDensity, "Frequency density")
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis)
@@ -266,36 +277,75 @@ class CumulativeFrequencyLine(SVG.PolylineObject):
     def __init__(self, cfd):
         super().__init__(cfd)
 
+class CumulativePercentageLine(SVG.PolylineObject):
+    def __init__(self, cfd):
+        total = cfd.totalFrequency
+        points = [(x, 100*y/total) for (x, y) in cfd]
+        super().__init__(points)
+
 class CumulativeFrequencyGraph(bryaxes.AxesCanvas):
-    def __init__(self, parent, cfd, width="95%", height="95%"):
+    def __init__(self, parent, cfd, title="", width="95%", height="95%"):
         xaxis = bryaxes.Axis(cfd.xMin, cfd.xMax, cfd.label, showMajorGrid=True, showMinorGrid=True)
         yaxis = bryaxes.Axis(0, cfd.totalFrequency, "Cumulative frequency", showMajorGrid=True, showMinorGrid=True)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis)
         self.attachObject(CumulativeFrequencyLine(cfd))
 
+class CumulativePercentageGraph(bryaxes.AxesCanvas):
+    def __init__(self, parent, cfd, title="", width="95%", height="95%"):
+        xaxis = bryaxes.Axis(cfd.xMin, cfd.xMax, cfd.label, showMajorGrid=True, showMinorGrid=True)
+        yaxis = bryaxes.Axis(0, 100, "Cumulative percentage", showMajorGrid=True, showMinorGrid=True)
+        super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis)
+        self.attachObject(CumulativePercentageLine(cfd))
+
 class DataPoints(SVG.GroupObject):
-    def __init__(self, canvas, datavalues, colour="red"):
+    def __init__(self, canvas, paireddata, colour="red"):
         super().__init__()
-        for dp in datavalues:
+        for dp in paireddata:
             self.addObject(bryaxes.AxesPoint(canvas, dp, colour))
 
+class LabelledDataPoint(SVG.GroupObject):
+    def __init__(self, canvas, label, coords, colour="red", objid=None):
+        super().__init__()
+        self.point = bryaxes.AxesPoint(canvas, coords, colour)
+        self.label = bryaxes.AxesTextObject(canvas, f"{label}\n{coords}", coords, anchorposition=8)
+        self.label.style.visibility = "hidden"
+        self.addObjects([self.point, self.label])
+        self.point.bind("mouseenter", self.showlabel)
+        self.point.bind("mouseleave", self.hidelabel)
+
+    def showlabel(self, event):
+        self.label.style.visibility = "visible"
+
+    def hidelabel(self, event):
+        self.label.style.visibility = "hidden"
+
+class LabelledDataPoints(SVG.GroupObject):
+    def __init__(self, canvas, lpd, colour="red"):
+        super().__init__()
+        for index, (label, coords) in enumerate(lpd.items()):
+            self.addObject(LabelledDataPoint(canvas, label, coords, colour, objid=f"{canvas.id}_dp_{index}"))
+
 class RegressionLine(SVG.LineObject):
-    def __init__(self, datavalues):
-        pmcc, gradient, yintercept = regressioninfo(datavalues)
-        x1, x2 = datavalues.xMin, datavalues.xMax
+    def __init__(self, data):
+        points = data.values() if isinstance(data, LabelledPairedData) else data
+        pmcc, gradient, yintercept = regressioninfo(points)
+        x1, x2 = data.xMin, data.xMax
         y1, y2 = gradient*x1 + yintercept, gradient*x2 + yintercept
         super().__init__([(x1,y1), (x2,y2)])
 
 class ScatterGraph(bryaxes.AxesCanvas):
-    def __init__(self, parent, datavalues, width="95%", height="95%", colour="red", showRegressionLine=False):
-        xaxis = bryaxes.Axis(datavalues.xMin, datavalues.xMax, datavalues.xLabel, showMajorGrid=True, showMinorGrid=True)
-        yaxis = bryaxes.Axis(datavalues.yMin, datavalues.yMax, datavalues.yLabel, showMajorGrid=True, showMinorGrid=True)
+    def __init__(self, parent, data, title="", width="95%", height="95%", colour="red", showRegressionLine=False):
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=True)
+        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=True)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis)
-        self.attachObject(DataPoints(self, datavalues, colour))
-        if showRegressionLine: self.attachObject(RegressionLine(datavalues))
+        if isinstance(data, LabelledPairedData):
+            self.attachObject(LabelledDataPoints(self, data, colour))
+        else:
+            self.attachObject(DataPoints(self, data, colour))
+        if showRegressionLine: self.attachObject(RegressionLine(data))
 
 class LineGraph(bryaxes.AxesCanvas):
-    def __init__(self, parent, datavalues, width="95%", height="95%", colours=None, fontsize=16, objid=None):
+    def __init__(self, parent, datavalues, titles="", width="95%", height="95%", colours=None, fontsize=16, objid=None):
         xaxis = bryaxes.Axis(datavalues.xMin, datavalues.xMax, datavalues.xLabel, showMajorGrid=True, showMinorGrid=True)
         yaxis = bryaxes.Axis(datavalues.yMin, datavalues.yMax, datavalues.yLabel, showMajorGrid=True, showMinorGrid=True)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis)
@@ -332,7 +382,7 @@ class BoxPlot(SVG.GroupObject):
             ])
 
 class BoxPlotCanvas(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, width="95%", height="95%", colour="yellow"):
+    def __init__(self, parent, data, title="", width="95%", height="95%", colour="yellow"):
         if isinstance(data, BoxPlotData): data = BoxPlotDataDict(data.axisLabel, {"":data})
         xaxis = bryaxes.Axis(data.xMin, data.xMax, data.axisLabel)
         yaxis = bryaxes.Axis(0, 50*len(data), "", showAxis=False, showMajorTicks=False, showMinorTicks=False)
@@ -346,7 +396,7 @@ class BoxPlotCanvas(bryaxes.AxesCanvas):
         self.fitContents()
 
 class PieChart(SVG.CanvasObject):
-    def __init__(self, parent, data, width="95%", height="95%", colours=None, usekey=True, fontsize=12, objid=None):
+    def __init__(self, parent, data, title="", width="95%", height="95%", colours=None, usekey=True, fontsize=12, objid=None):
         super().__init__(width, height, objid=objid)
         parent <= self
         if not colours: colours = DEFAULT_COLOURS
@@ -374,6 +424,7 @@ class PieChart(SVG.CanvasObject):
                     SVG.TextObject(label, keypos+(keysize,fontsize/2), anchorposition=4, fontsize=fontsize)
                     ]))
                 keypos += (0,keysize)
+            titlepos = (120, -110)
         else:
             anchorpositions = [7, 4, 1, 3, 6, 9]
             for i, label in enumerate(data.labels):
@@ -381,8 +432,9 @@ class PieChart(SVG.CanvasObject):
                 anchorposition = anchorpositions[int(anglepos//60)]
                 anchorpoint = (105*sin(anglepos*pi/180), -105*cos(anglepos*pi/180))
                 self.addObject(SVG.TextObject(label, anchorpoint, anchorposition, fontsize=fontsize))
+            titlepos = (0, -130)
+        if title: self.addObject(SVG.TextObject(title, titlepos, anchorposition=8, fontsize=fontsize))
         self.fitContents()
-        self.mouseMode = SVG.MouseMode.DRAG
 
 
 

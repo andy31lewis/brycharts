@@ -31,8 +31,8 @@ class AxesWrappingTextObject(SVG.WrappingTextObject):
         self.attrs["transform"] = f"translate({x},{y}) scale({canvas.xScaleFactor},{-canvas.yScaleFactor}) translate({-x},{-y})"
 
 class AxesPoint(SVG.PointObject):
-    def __init__(self, canvas, XY=(0,0), colour="black", pointsize=2):
-        super().__init__(XY, colour, pointsize)
+    def __init__(self, canvas, XY=(0,0), colour="black", pointsize=2, objid=None):
+        super().__init__(XY, colour, pointsize, objid=objid)
         self.anchorPoint = (x, y) = XY
         self.attrs["transform"] = f"translate({x},{y}) scale({canvas.xScaleFactor},{-canvas.yScaleFactor}) translate({-x},{-y})"
 
@@ -112,7 +112,7 @@ class ScaleValues(SVG.GroupObject):
         super().__init__(scalevalues)
 
 class AxesCanvas(SVG.CanvasObject):
-    def __init__(self, parent, width, height, xAxis=None, yAxis=None, objid=None):
+    def __init__(self, parent, width, height, xAxis=None, yAxis=None, title=None, objid=None):
         super().__init__(width, height, objid=objid)
         parent <= self
         self.attrs["preserveAspectRatio"] = "none"
@@ -122,6 +122,7 @@ class AxesCanvas(SVG.CanvasObject):
         self.addObject(self.container)
         self.mouseMode = SVG.MouseMode.PAN
         self.lineWidthScaling = False
+        self.title = title
 
         self.drawAxes(xAxis, yAxis)
 
@@ -230,4 +231,6 @@ class AxesCanvas(SVG.CanvasObject):
                 self.yAxisObjects.addObjects(GridLines("y", "major", yAxis, xAxis.min, xAxis.max, omit))
 
             self.attachObject(self.yAxisObjects)
+            if self.title:
+                self.attachObject(AxesTextObject(self, self.title, ((xAxis.min+xAxis.max)/2, yAxis.max+1.5*yAxis.fontsize*self.yScaleFactor), 8, yAxis.fontsize*1.25))
             self.fitContents()

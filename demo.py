@@ -49,8 +49,9 @@ brycharts.PieChart(self.chartbox, freqdata, height="45%", usekey=False)""")
     def update(self):
         if self.viewed: return
         freqdata = brycharts.FrequencyData(rawdata=continentlist)
-        brycharts.PieChart(self.chartbox, freqdata, height="45%", usekey=True)
-        brycharts.PieChart(self.chartbox, freqdata, height="45%", usekey=False)
+        title = "Location of the cities which are included in the Numbeo database file"
+        brycharts.PieChart(self.chartbox, freqdata, title, height="45%", usekey=True)
+        brycharts.PieChart(self.chartbox, freqdata, title, height="45%", usekey=False)
         self.viewed = True
 
 class BarChartPage(DemoPage):
@@ -65,8 +66,9 @@ brycharts.GroupedBarChart(self.chartbox, labelleddatadict, height="45%")""")
     def update(self):
         if self.viewed: return
         labelleddatadict = brycharts.LabelledDataDict(livingcostdata, "Cost Index")
-        brycharts.StackedBarChart(self.chartbox, labelleddatadict, height="45%")
-        brycharts.GroupedBarChart(self.chartbox, labelleddatadict, height="45%")
+        title = "Breakdown of living costs in six cities"
+        brycharts.StackedBarChart(self.chartbox, labelleddatadict, title, height="45%")
+        brycharts.GroupedBarChart(self.chartbox, labelleddatadict, title, height="45%")
         self.viewed = True
 
 class LineGraphPage(DemoPage):
@@ -93,8 +95,8 @@ brycharts.ScatterGraph(self.chartbox, paireddata, showRegressionLine=True)""")
 
     def update(self):
         if self.viewed: return
-        paireddata = brycharts.PairedData("Average Salary Index", "Total Cost of Living Index", salaryvscostsdata)
-        brycharts.ScatterGraph(self.chartbox, paireddata, showRegressionLine=True)
+        lpd = brycharts.LabelledPairedData("Average Salary Index", "Total Cost of Living Index", salaryvscostsdata)
+        brycharts.ScatterGraph(self.chartbox, lpd, showRegressionLine=True)
         self.viewed = True
 
 class BoxPlotPage(DemoPage):
@@ -131,20 +133,20 @@ brycharts.Histogram(self.chartbox, gfd2, height="45%")""")
         brycharts.Histogram(self.chartbox, gfd2, height="45%")
         self.viewed = True
 
-class CumulativeFrequencyPage(DemoPage):
+class CumulativePercentagePage(DemoPage):
     def __init__(self):
-        super().__init__(2, "Cum Freq Graph", "#adff7f")
+        super().__init__(2, "Cum %age Graph", "#adff7f")
         self.description.attach(formatted(cumulativefrequencytext))
         self.databox.attach(f"USpurchasingpower = {USpurchasingpower}")
         self.codebox.attach("""cfd = brycharts.CumulativeFrequencyData(label="Local Purchasing Power Index", rawdata=USpurchasingpower,
 boundaries = [60, 80, 100, 110, 120, 125, 130, 135, 140, 150, 160, 180])
-brycharts.CumulativeFrequencyGraph(self.chartbox, cfd)""")
+brycharts.CumulativePercentageGraph(self.chartbox, cfd)""")
 
     def update(self):
         if self.viewed: return
         cfd = brycharts.CumulativeFrequencyData(label="Local Purchasing Power Index", rawdata=USpurchasingpower,
                                                 boundaries = [60, 80, 100, 110, 120, 125, 130, 135, 140, 150, 160, 180])
-        brycharts.CumulativeFrequencyGraph(self.chartbox, cfd)
+        brycharts.CumulativePercentageGraph(self.chartbox, cfd)
         self.viewed = True
 
 def formatted(inputstring):
@@ -207,8 +209,10 @@ livingcostdata = {index:{city["City"]:city[index] for city in alldata if city["C
 rentdata = gethistoricaldata()
 
 # Get data for scattergraph
-salaryvscostsdata = [(city["Average Disposable Salary Index"], city["Cost of Living plus Rent Index"])
-                        for city in alldata if city["Country"] == "United Kingdom"]
+#salaryvscostsdata = [(city["Average Disposable Salary Index"], city["Cost of Living plus Rent Index"])
+#                        for city in alldata if city["Country"] == "United Kingdom"]
+salaryvscostsdata = {city["City"]:(city["Average Disposable Salary Index"], city["Cost of Living plus Rent Index"])
+                        for city in alldata if city["Country"] == "United Kingdom"}
 
 # Get data for box plots, histograms and cumulative frequency graph
 countrylist = ["United States", "Germany", "United Kingdom"]
@@ -218,7 +222,7 @@ for city in alldata:
     purchasingpowerdict[city["Country"]].append(city["Local Purchasing Power Index"])
 USpurchasingpower = purchasingpowerdict["United States"]
 
-pages = [IntroPage(), PieChartPage(), BarChartPage(), LineGraphPage(), ScattergraphPage(), BoxPlotPage(), HistogramPage(), CumulativeFrequencyPage()]
+pages = [IntroPage(), PieChartPage(), BarChartPage(), LineGraphPage(), ScattergraphPage(), BoxPlotPage(), HistogramPage(), CumulativePercentagePage()]
 document["body"].innerHTML = ""
 document <= (notebook := ws.Notebook(pages))
 pageheight = f"calc(100vh - {notebook.tabrow.offsetHeight}px)"
