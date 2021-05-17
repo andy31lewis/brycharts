@@ -120,7 +120,7 @@ class AxesCanvas(SVG.CanvasObject):
         #self.container.style.transform = "scaleY(-1)"
         self.container.attrs["transform"] = "scale(1,-1)"
         self.addObject(self.container)
-        self.mouseMode = SVG.MouseMode.PAN
+        #self.mouseMode = SVG.MouseMode.PAN
         self.lineWidthScaling = False
         self.title = title
 
