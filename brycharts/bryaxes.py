@@ -120,9 +120,10 @@ class AxesCanvas(SVG.CanvasObject):
         #self.container.style.transform = "scaleY(-1)"
         self.container.attrs["transform"] = "scale(1,-1)"
         self.addObject(self.container)
-        #self.mouseMode = SVG.MouseMode.PAN
+        self.mouseMode = SVG.MouseMode.PAN
         self.lineWidthScaling = False
         self.title = title
+        self.tooltips = []
 
         self.drawAxes(xAxis, yAxis)
 
@@ -136,13 +137,17 @@ class AxesCanvas(SVG.CanvasObject):
             else:
                 self.container.addObject(obj)
 
-    def fitContents(self):
-        super().fitContents()
+    def setViewBox(self, pointlist):
+        super().setViewBox(pointlist)
+        print("Using bryaxes setViewBox")
         for objid in self.objectDict:
             obj = self.objectDict[objid]
             if isinstance(obj, (AxesTextObject, AxesWrappingTextObject, AxesPoint)):
                 (x, y) = obj.anchorPoint
                 obj.attrs["transform"] = f"translate({x},{y}) scale({self.xScaleFactor},{-self.yScaleFactor}) translate({-x},{-y})"
+
+    def fitContents(self):
+        super().fitContents()
         super().fitContents()
 
     def makeXScaleValue(self, x, y):

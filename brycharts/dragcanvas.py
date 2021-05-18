@@ -99,6 +99,25 @@ class ObjectMixin(object):
     def __repr__(self):
         return f"{self.__class__}{self.id}"
 
+class SmoothBezierMixin(object):
+    '''Extra methods for SmoothBezierObject and SmoothClosedBezierObject.'''
+    def _calculatecontrolpoints(self, points):
+        '''Not intended to be called by end users.'''
+        [(x1, y1), (x2, y2), (x3, y3)] = points
+        (dx1, dy1) = ((x2-x1), (y2-y1))
+        (dx3, dy3) = ((x2-x3), (y2-y3))
+        d1 = hypot(dx1, dy1)
+        d2 = hypot(dx3, dy3)
+        if d1 == 0 or d2 == 0: return ((x2, y2), (x2, y2))
+        cos1, sin1 = dx1/d1, dy1/d1
+        cos2, sin2 = dx3/d2, dy3/d2
+
+        (c1x, c1y) = (x2 - d1*(cos1-cos2)/2, y2 - d1*(sin1-sin2)/2)
+        (c2x, c2y) = (x2 + d2*(cos1-cos2)/2, y2 + d2*(sin1-sin2)/2)
+        c1 = ((c1x+x2)/2, (c1y+y2)/2)
+        c2 = ((c2x+x2)/2, (c2y+y2)/2)
+        return (Point(c1), Point(c2))
+
     '''The following XxxObject classes share various common parameters and attributes.
     ###Common Parameters
     When created, as well as the paramters listed for each type of Object, they all share the following optional parameters:
@@ -351,6 +370,71 @@ class RectangleObject(svg.rect, ObjectMixin):
         self.attrs["width"] = self._width
         self.attrs["height"] = self._height
 
+class EllipseObject(svg.ellipse, ObjectMixin):
+    '''Wrapper for SVG ellipse.  Parameters:
+    EITHER:
+         `pointlist`: a list of coordinates for two opposite vertices of the bounding box of the ellipse
+    OR:
+        `centre`: coordinates of the centre of the ellipse
+        `width`: required width of the ellipse (before any rotation)
+        `height` required height of the ellipse (before any rotation)
+    (If only one of `width` and `height` is specified, the ellipse will be a circle.)
+    `angle`: The angle (in degrees, clockwise) through which the sides of the ellipse's bounding box
+     are rotated from horizontal and vertical.
+    '''
+    def __init__(self, pointlist=None, centre=(0,0), width=0, height=None, angle=0, linecolour="black", linewidth=1, fillcolour="yellow", objid=None):
+        svg.ellipse.__init__(self, style = {"stroke":linecolour, "stroke-width":linewidth, "fill":fillcolour})
+        self.angle = angle
+        if pointlist:
+            self.setPointList(pointlist)
+        else:
+            self.centre = Point(centre)
+            if not height: height = width
+            if height and not width: width = height
+            self._width = width
+            self._height = height
+            self.setPosition()
+        if objid: self.id = objid
+
+    def setPosition(self, centre=None, width=None, height=None, angle=None, preserveaspectratio=False):
+        '''Change the position, size, and/or angle of the ellipse.
+        If only one of `width` and `height` is specified, and `preserveaspectratio` is set to `True`,
+        the other will be set so that the ellipse keeps its current aspect ratio.'''
+        if centre: self.centre = Point(centre)
+        if width:
+            self._width = width
+            if preserveaspectratio and not height: self._height = width*self.currentAspectRatio
+        if height:
+            self._height = height
+            if preserveaspectratio and not width: self._width = height/self.currentAspectRatio
+        if angle is not None: self.angle = angle
+
+        (cx, cy) = self.centre
+        self.pointList = [(cx-self._width/2, cy-self._height/2), (cx+self._width/2, cy+self._height/2)]
+        t = svgbase.createSVGTransform()
+        t.setRotate(self.angle, cx, cy)
+        self.pointList = self._transformedpointlist(t.matrix)
+        self._update()
+        self._updatehittarget()
+
+    def _update(self):
+        [(x1, y1), (x2, y2)] = self.pointList
+        (cx, cy) = ((x1+x2)/2, (y1+y2)/2)
+        self.centre = Point((cx, cy))
+        self.rotatestring = self.style.transform = f"translate({cx}px,{cy}px) rotate({self.angle}deg) translate({-cx}px,{-cy}px)"
+
+        t = svgbase.createSVGTransform()
+        t.setRotate(-self.angle, cx, cy)
+        basepointlist = self._transformedpointlist(t.matrix)
+        [(x1, y1), (x2, y2)] = basepointlist
+        self._width = abs(x2-x1)
+        self._height = abs(y2-y1)
+        if self._width != 0: self.currentAspectRatio = self._height/self._width
+        self.attrs["cx"] = (x1+x2)/2
+        self.attrs["cy"] = (y1+y2)/2
+        self.attrs["rx"] = self._width/2
+        self.attrs["ry"] = self._height/2
+
 class CircleObject(svg.circle, ObjectMixin):
     '''Wrapper for SVG circle. Parameters:
     EITHER  centre and radius,
@@ -395,6 +479,323 @@ class SectorObject(svg.path, ObjectMixin):
         largeArcFlag = 1 if (self.endangle - self.startangle) % 360 > 180 else 0
         self.attrs["d"] = f"M {x1} {y1} L {x2} {y2} A {r} {r} 0 {largeArcFlag} 1 {x3} {y3} Z"
 
+class UseObject(svg.use, ObjectMixin):
+    '''Wrapper for SVG `use` element.  Parameters:
+    `href`: the `#id` of the object being cloned
+    EITHER: `origin`: coordinates on the canvas of the point (0,0) of the object being cloned
+    OR: `centre`: coordinates of the centre of the object's bounding box
+    (If both are specified, the `origin` is used.)
+    `width`: required width of the object (before any rotation)
+    `height` required height of the object(before any rotation)
+    (If only one of `width` and `height` is specified, the other will be set so that the object keeps its actual aspect ratio.
+    If neither is specified, the object will be displayed at its actual size.)
+    `angle`: an optional angle of rotation (clockwise, in degrees).'''
+    def __init__(self, href=None, origin=None, centre=(0,0), width=None, height=None, angle=0, scale=None, objid=None):
+        svg.use.__init__(self, href=href)
+        document <= svgbase
+        tempgroup = svg.g() #Needed to overcome bug in iPad getBBox implementation
+        tempgroup <= self
+        svgbase <= tempgroup
+        bbox = tempgroup.getBBox()
+        svgbase.removeChild(tempgroup)
+        document.body.removeChild(svgbase)
+        self._origwidth = bbox.width
+        self._origheight = bbox.height
+        self._origaspectratio = self._origheight/self._origwidth
+        (cx, cy) = (bbox.x+bbox.width/2, bbox.y+bbox.height/2)
+        self.originoffset = Point((-cx, -cy))
+
+        if width and height:
+            (self._width, self._height) = (width, height)
+        elif width:
+            (self._width, self._height) = (width, width*self._origaspectratio)
+        elif height:
+            (self._width, self._height) = (height/self._origaspectratio, height)
+        else:
+            (self._width, self._height) = (self._origwidth, self._origheight)
+        #if self._width != 0: self.currentAspectRatio = self._height/self._width
+
+        if origin:
+            scalefactors = (self._width/self._origwidth, self._height/self._origheight)
+            self.centre = Point(origin) - self.originoffset*scalefactors
+        else:
+            self.centre = Point(centre)
+        self.angle = angle
+        self.setPosition()
+        if objid: self.id = objid
+
+    def setPosition(self, origin=None, centre=None, width=None, height=None, angle=None, preserveaspectratio=False):
+        '''Change the position, size, and/or angle of the object.
+        If both `origin` and `centre`are specified, the `origin` is used.
+        If only one of `width` and `height` is specified, and `preserveaspectratio` is set to `True`,
+        the other will be set so that the object keeps its current aspect ratio.'''
+        if width:
+            self._width = width
+            if preserveaspectratio and not height: self._height = width*self.currentAspectRatio
+        if height:
+            self._height = height
+            if preserveaspectratio and not width: self._width = height/self.currentAspectRatio
+        if self._width != 0: self.currentAspectRatio = self._height/self._width
+
+        if origin:
+            scalefactors = (self._width/self._origwidth, self._height/self._origheight)
+            self.centre = Point(origin) - self.originoffset*scalefactors
+        elif centre:
+            self.centre = Point(centre)
+        if angle is not None: self.angle = angle
+
+        (cx, cy) = self.centre
+        self.pointList = [(cx-self._width/2, cy-self._height/2), (cx+self._width/2, cy+self._height/2)]
+        t = svgbase.createSVGTransform()
+        t.setRotate(self.angle, cx, cy)
+        self.pointList = self._transformedpointlist(t.matrix)
+        self._update()
+        self._updatehittarget()
+
+    def _update(self):
+        [(x1, y1), (x2, y2)] = self.pointList
+        (cx, cy) = ((x1+x2)/2, (y1+y2)/2)
+        self.centre = Point((cx, cy))
+        self.rotatestring = f"translate({cx}px,{cy}px) rotate({self.angle}deg) translate({-cx}px,{-cy}px)"
+        (xscale, yscale) = (self._width/self._origwidth, self._height/self._origheight)
+        self.scalestring = f"translate({cx}px,{cy}px) scale({xscale},{yscale}) translate({-cx}px,{-cy}px)"
+        self.style.transform = self.rotatestring + self.scalestring
+        self.origin = self.centre + self.originoffset
+        (self.attrs["x"], self.attrs["y"]) = self.origin
+
+class ImageObject(svg.image, ObjectMixin):
+    '''Wrapper for SVG `image` element.  Parameters:
+    `href`: the path to the file containing the image
+    EITHER:
+         `pointlist`: a list of coordinates for two opposite vertices  of the box containing the image
+    OR:
+        `centre`: coordinates of the centre of the image
+        `width`: required width of the image (before any rotation)
+        `height` required height of the image (before any rotation)
+    (If only one of `width` and `height` is specified, the other will be set so that the image keeps its actual aspect ratio.
+    If neither is specified, the image will be displayed at its actual size.)
+    `angle`: an optional angle of rotation (clockwise, in degrees). '''
+    def __init__(self, href=None, pointlist=None, centre=(0,0), width=0, height=None, angle=0, objid=None):
+        def initialise(event):
+            nonlocal width, height
+            self.imageWidth = img.naturalWidth
+            self.imageHeight = img.naturalHeight
+            #print("Image size", self.imageWidth, self.imageHeight)
+            self.imageAspectRatio = self.imageHeight/self.imageWidth
+
+            self.attrs["preserveAspectRatio"] = "none"
+            self.angle = angle
+            if pointlist:
+                self.setPointList(pointlist)
+            else:
+                self.centre = Point(centre)
+                if not width and not height:
+                    width = self.imageWidth
+                    height = self.imageHeight
+                elif not height:
+                    height = width*self.imageAspectRatio
+                elif not width:
+                    width = height/self.imageAspectRatio
+                self._width = width
+                self._height = height
+                self._setuppointlist()
+            self.style.visibility = "visible"
+            self.imageloaded = True
+            loadcomplete = window.Event.new("loadcomplete")
+            self.dispatchEvent(loadcomplete)
+
+        super().__init__()
+        if objid: self.id = objid
+        self.imageloaded = False
+        self.style.visibility = "hidden"
+        if not href: return
+        self.attrs["href"] = href
+        img = html.IMG()
+        img.bind("load", initialise)
+        img.attrs["src"] = href
+
+    def setPosition(self, centre=None, width=None, height=None, angle=None, preserveaspectratio=False):
+        '''Change the position, size, and/or angle of the image.
+        If only one of `width` and `height` is specified, and `preserveaspectratio` is set to `True`,
+        the other will be set so that the image keeps its current aspect ratio.'''
+        def set_position(event=None):
+            #print("Starting set_position")
+            if centre: self.centre = Point(centre)
+            if width:
+                self._width = width
+                if preserveaspectratio and not height: self._height = width*self.currentAspectRatio
+            if height:
+                self._height = height
+                if preserveaspectratio and not width: self._width = height/self.currentAspectRatio
+            if angle is not None: self.angle = angle
+            self._setuppointlist()
+
+        if self.imageloaded:
+            set_position()
+        else:
+            self.bind("loadcomplete", set_position)
+
+    def _setuppointlist(self):
+        (cx, cy) = self.centre
+        self.pointList = [(cx-self._width/2, cy-self._height/2), (cx+self._width/2, cy+self._height/2)]
+        t = svgbase.createSVGTransform()
+        t.setRotate(self.angle, cx, cy)
+        self.pointList = self._transformedpointlist(t.matrix)
+        self._update()
+        self._updatehittarget()
+
+    def _update(self):
+        [(x1, y1), (x2, y2)] = self.pointList
+        (cx, cy) = ((x1+x2)/2, (y1+y2)/2)
+        self.centre = Point((cx, cy))
+        self.rotatestring = self.style.transform = f"translate({cx}px,{cy}px) rotate({self.angle}deg) translate({-cx}px,{-cy}px)"
+
+        t = svgbase.createSVGTransform()
+        t.setRotate(-self.angle, cx, cy)
+        basepointlist = self._transformedpointlist(t.matrix)
+        [(x1, y1), (x2, y2)] = basepointlist
+        self._width = abs(x2-x1)
+        self._height = abs(y2-y1)
+        if self._width != 0: self.currentAspectRatio = self._height/self._width
+        self.attrs["x"] = x2 if x2<x1 else x1
+        self.attrs["y"] = y2 if y2<y1 else y1
+        self.attrs["width"] = self._width
+        self.attrs["height"] = self._height
+
+class BezierObject(svg.path, ObjectMixin):
+    '''Wrapper for svg path element.  Parameter:
+    EITHER pointlist: a list of coordinates for the vertices (in which case the edges will initially be straight lines)
+    OR  pointsetlist: a list of tuples, each tuple consisting of three points:
+    (previous-control-point, vertex, next-control-point).
+    For the first vertex, the previous-control-point must be None,
+    and for the last vertex, the next-control-point must be None.'''
+    def __init__(self, pointsetlist=None, pointlist=[(0,0), (0,0)], linecolour="black", linewidth=1, fillcolour="none", objid=None):
+        def toPoint(coords):
+            return None if coords is None else Point(coords)
+        svg.path.__init__(self, style={"stroke":linecolour, "stroke-width":linewidth, "fill":fillcolour})
+        if pointsetlist:
+            self.pointList = [Point(pointset[1]) for pointset in pointsetlist]
+        else:
+            self.pointList = [Point(coords) for coords in pointlist]
+            pointsetlist = self._getpointsetlist(self.pointList)
+        self.pointsetList = [[toPoint(coords) for coords in pointset] for pointset in pointsetlist]
+        self._update()
+        if objid: self.id = objid
+
+    def _getpointsetlist(self, pointlist):
+        pointsetlist = [[None, pointlist[0], (pointlist[0]+pointlist[1])/2]]
+        for i in range(1, len(pointlist)-1):
+            pointsetlist.append([(pointlist[i-1]+pointlist[i])/2, pointlist[i], (pointlist[i]+pointlist[i+1])/2])
+        pointsetlist.append([(pointlist[-2]+pointlist[-1])/2, pointlist[-1], None])
+        return pointsetlist
+
+    def _updatepointsetlist(self):
+        if len(self.pointList) == 2:
+            self.pointsetList = [[None]+self.pointList, self.pointList+[None]]
+        else:
+            cpoint = (self.pointList[-1]+self.pointList[-2])/2
+            self.pointsetList[-1] = [cpoint, self.pointList[-1], None]
+            self.pointsetList[-2][2] = cpoint
+
+    def _update(self):
+        (dummy, (x1, y1), (c1x, c1y)) = self.pointsetList[0]
+        ((c2x, c2y), (x2, y2), dummy) = self.pointsetList[-1]
+        self.plist = ["M", x1, y1, "C", c1x, c1y]+[x for p in self.pointsetList[1:-1] for c in p for x in c]+[c2x, c2y, x2, y2]
+        self.attrs["d"] = " ".join(str(x) for x in self.plist)
+
+class ClosedBezierObject(BezierObject):
+    '''Wrapper for svg path element.  Parameter:
+    EITHER pointlist: a list of coordinates for the vertices (in which case the edges will initially be stright lines)
+    OR  pointsetlist: a list of tuples, each tuple consisting of three points:
+    (previous-control-point, vertex, next-control-point).
+    The path will be closed (the first vertex does not need to be repeated).'''
+    def __init__(self, pointsetlist=None, pointlist=[(0,0), (0,0)], linecolour="black", linewidth=1, fillcolour="yellow", objid=None):
+        svg.path.__init__(self, style={"stroke":linecolour, "stroke-width":linewidth, "fill":fillcolour})
+        if pointsetlist:
+            self.pointList = [Point(pointset[1]) for pointset in pointsetlist]
+        else:
+            self.pointList = [Point(coords) for coords in pointlist]
+            pointsetlist = self._getpointsetlist(self.pointList)
+        self.pointsetList = [[Point(coords) for coords in pointset] for pointset in pointsetlist]
+        self._update()
+        if objid: self.id = objid
+
+    def _getpointsetlist(self, pointlist):
+        pointsetlist = [[(pointlist[0]+pointlist[-1])/2, pointlist[0], (pointlist[0]+pointlist[1])/2]]
+        for i in range(1, len(pointlist)-1):
+            pointsetlist.append([(pointlist[i-1]+pointlist[i])/2, pointlist[i], (pointlist[i]+pointlist[i+1])/2])
+        pointsetlist.append([(pointlist[-2]+pointlist[-1])/2, pointlist[-1], (pointlist[0]+pointlist[-1])/2])
+        return pointsetlist
+
+    def _updatepointsetlist(self):
+        if len(self.pointList) == 2:
+            self.pointsetList = self._getpointsetlist(self.pointList)
+        else:
+            cpoint1, cpoint2 = (self.pointList[-1]+self.pointList[-2])/2, (self.pointList[-1]+self.pointList[0])/2
+            self.pointsetList[-1] = (cpoint1, self.pointList[-1], cpoint2)
+            self.pointsetList[-2][2] = cpoint1
+            self.pointsetList[0][0] = cpoint2
+
+    def _update(self):
+        ((c1x, c1y), (x, y), (c2x, c2y)) = self.pointsetList[0]
+        self.plist = ["M", x, y, "C", c2x, c2y] + [x for p in self.pointsetList[1:] for c in p for x in c] + [c1x, c1y, x, y]
+        self.attrs["d"] = " ".join(str(x) for x in self.plist)
+
+class SmoothBezierObject(SmoothBezierMixin, BezierObject):
+    '''Wrapper for svg path element.  Parameter:
+    pointlist: a list of vertices.
+    Control points will be calculated automatically so that the curve is smooth at each vertex.'''
+    def __init__(self, pointlist=[(0,0), (0,0)], linecolour="black", linewidth=1, fillcolour="none", objid=None):
+        self.pointList = [Point(coords) for coords in pointlist]
+        pointsetlist = self._getpointsetlist(self.pointList)
+        BezierObject.__init__(self, pointsetlist, linecolour=linecolour, linewidth=linewidth, fillcolour=fillcolour, objid=objid)
+
+    def _getpointsetlist(self, pointlist):
+        if len(pointlist) == 2: return [[None]+pointlist, pointlist+[None]]
+        for i in range(1, len(pointlist)-1):
+            (c1, c2) = self._calculatecontrolpoints(pointlist[i-1:i+2])
+            if i == 1:
+                pointsetlist = [[None, pointlist[0], (pointlist[0]+c1)/2]]
+            pointsetlist.append([c1, pointlist[i], c2])
+        pointsetlist.append([(pointlist[-1]+c2)/2, pointlist[-1], None])
+        return pointsetlist
+
+    def _updatepointsetlist(self):
+        if len(self.pointList) == 2:
+            self.pointsetList = [[None]+self.pointList, self.pointList+[None]]
+        else:
+            (c1, c2) = self._calculatecontrolpoints(self.pointList[-3:])
+            self.pointsetList[-1] = [(self.pointList[-1]+c2)/2, self.pointList[-1], None]
+            self.pointsetList[-2] = [c1, self.pointList[-2], c2]
+
+class SmoothClosedBezierObject(SmoothBezierMixin, ClosedBezierObject):
+    '''Wrapper for svg path element.  Parameter:
+    pointlist: a list of vertices.
+    The path will be closed (the first vertex does not need to be repeated).
+    Control points will be calculated automatically so that the curve is smooth at each vertex.'''
+    def __init__(self, pointlist=[(0,0), (0,0)], linecolour="black", linewidth=1, fillcolour="yellow", objid=None):
+        self.pointList = [Point(coords) for coords in pointlist]
+        pointsetlist = self._getpointsetlist(self.pointList)
+        ClosedBezierObject.__init__(self, pointsetlist, linecolour=linecolour, linewidth=linewidth, fillcolour=fillcolour, objid=objid)
+
+    def _getpointsetlist(self, pointlist):
+        pointlist = [pointlist[-1]]+pointlist[:]+[pointlist[0]]
+        pointsetlist = []
+        for i in range(1, len(pointlist)-1):
+            (c1, c2) = self._calculatecontrolpoints(pointlist[i-1:i+2])
+            pointsetlist.append([c1, pointlist[i], c2])
+        return pointsetlist
+
+    def _updatepointsetlist(self):
+        if len(self.pointList) == 2:
+            self.pointsetList = self._getpointsetlist(self.pointList)
+        else:
+            L = len(self.pointList)
+            pointlist = self.pointList[:]+self.pointList[:2]
+            for j in range(L-2, L+1):
+                (c1, c2) = self._calculatecontrolpoints(pointlist[j-1:j+2])
+                self.pointsetList[j%L] = [c1, pointlist[j], c2]
+
 class PointObject(svg.circle, ObjectMixin):
     '''A point (small circle) on a diagram. Parameters:
     XY: the coordinates of the point,
@@ -402,7 +803,7 @@ class PointObject(svg.circle, ObjectMixin):
     def __init__(self, XY=(0,0), colour="black", pointsize=2, canvas=None, objid=None):
         (x, y) = XY
         sf = canvas.scaleFactor if canvas else 1
-        svg.circle.__init__(self, cx=x, cy=y, r=pointsize*sf, style={"stroke":colour, "stroke-width":1, "fill":colour, "vector-effect":"non-scaling-stroke"})
+        svg.circle.__init__(self, cx=x, cy=y, r=(pointsize+1)*sf, style={"stroke":"#00000000", "stroke-width":3, "fill":colour, "vector-effect":"non-scaling-stroke"})
         self._XY = None
         self.XY = Point(XY)
         if objid: self.id = objid
@@ -419,6 +820,28 @@ class PointObject(svg.circle, ObjectMixin):
         self._XY = Point(XY)
         self.attrs["cx"] = self._XY[0]
         self.attrs["cy"] = self._XY[1]
+
+class RegularPolygon(PolygonObject):
+    '''A regular polygon.  Parameters:
+    sidecount: the number of sides
+    EITHER centre: the centre of the polygon, OR startpoint: the coordinates of a vertex at the top of the polygon
+    EITHER radius: the radius of the polygon, OR sidelength: the length of each side
+    offsetangle: (optional) the angle (in degrees, clockwise) by which the top edge of the polygon is rotated from the horizontal.'''
+    def __init__(self, sidecount=0, centre=None, radius=None, startpoint=None, sidelength=None, offsetangle=0, linecolour="black", linewidth=1, fillcolour="yellow", objid=None):
+        pointlist = []
+        if sidecount>0:
+            angle = 2*pi/sidecount
+            radoffset = offsetangle*pi/180
+            if not radius: radius = sidelength/(2*sin(pi/sidecount))
+            if not centre:
+                (x, y) = startpoint
+                centre = (x-radius*sin(radoffset), y+radius*cos(radoffset))
+            (cx, cy) = centre
+            for i in range(sidecount):
+                t = radoffset+i*angle
+                pointlist.append(Point((cx+radius*sin(t), cy-radius*cos(t))))
+        PolygonObject.__init__(self, pointlist, linecolour, linewidth, fillcolour, objid)
+        if objid: self.id = objid
 
 class GroupObject(svg.g, ObjectMixin):
     '''Wrapper for SVG `g` element. Parameter:
@@ -495,8 +918,86 @@ class GroupObject(svg.g, ObjectMixin):
         self._fixed = fixedvalue
         for obj in self.objectList: obj.fixed = fixedvalue
 
-class BezierObject():
-    pass
+class Button(GroupObject):
+    '''A clickable button with (multiline) text on it.
+    Parameters:
+    position: coordinates of the top-left of the button
+    size: (width, height) of the button
+    text: text on the button. Use "\n" to insert a new line.
+    onclick: function to be called when the button is clicked
+    fontsize: If this is not specified, the text will be scaled to fit the height (but not width) of the button.
+    fillcolour: background colour of the button. Can be changed after creation using the setFillColour method.
+    canvas: Not used at present'''
+    def __init__(self, position, size, text, onclick, fontsize=None, fillcolour="lightgrey", canvas=None, objid=None):
+        GroupObject.__init__(self)
+        if objid: self.id = objid
+        (x, y), (width, height) = position, size
+        self.button = RectangleObject([(x,y),(x+width, y+height)], fillcolour=fillcolour)
+        self.button.attrs["rx"] = height/3
+        rowcount = text.count("\n") + 1
+        if not fontsize: fontsize = height*0.75/rowcount
+        self.label = TextObject(text,(x+width/2,y+height/2-fontsize/8),anchorposition=5, fontsize=fontsize)
+        self.addObjects([self.button, self.label])
+        self.fixed = True
+        self.bind("mousedown", self._onMouseDown)
+        self.bind("mouseup", self._onMouseUp)
+        self.bind("click", onclick)
+        self.bind("touchstart", onclick)
+        self.attrs["cursor"] = "pointer"
+
+    def _onMouseDown(self, event):
+        event.stopPropagation()
+
+    def _onMouseUp(self, event):
+        event.stopPropagation()
+
+    def setFillColour(self, colour):
+        self.button.style.fill = colour
+
+class ImageButton(GroupObject):
+    '''A clickable button with an SVG image on it. The centre of the image should be at (0,0).
+    For parameters see Button above, except:
+    image: Image on the button. The coordinates of the centre of the image should be at (0,0).
+    canvas: If the canvas is specified, the image will be scaled to fit inside the button.'''
+    def __init__(self, position, size, image, onclick, fontsize=None, fillcolour="lightgrey", canvas=None, objid=None):
+        GroupObject.__init__(self)
+        if objid: self.id = objid
+        (x, y), (width, height) = position, size
+        self.button = RectangleObject([(x,y),(x+width, y+height)], fillcolour=fillcolour)
+        self.button.attrs["rx"] = height/3
+        image.style.transform = f"translate({x+width/2}px,{y+height/2}px)"
+        if canvas:
+            canvas <= image
+            bbox = image.getBBox()
+            canvas.removeChild(image)
+            scalefactor = min(width/bbox.width, height/bbox.height)*0.7
+            image.style.transform += f" scale({scalefactor})"
+        self.addObjects([self.button, image])
+        self.fixed = True
+        self.bind("mousedown", self._onMouseDown)
+        self.bind("mouseup", self._onMouseUp)
+        self.bind("click", onclick)
+        self.bind("touchstart", onclick)
+        self.attrs["cursor"] = "pointer"
+
+    def _onMouseDown(self, event):
+        event.stopPropagation()
+
+    def _onMouseUp(self, event):
+        event.stopPropagation()
+
+    def setFillColour(self, colour):
+        self.button.style.fill = colour
+
+class Definitions(svg.defs):
+    '''Wrapper for SVG `defs` element (mainly for use with `UseObjects`). Parameters:
+    `objlist`: a list of `XxxObjects` in brySVG format.
+    `filename`: a file to be imported, containing shapes defined in standard SVG (not brySVG) format.'''
+    def __init__(self, objlist=[], filename=None):
+        svg.defs.__init__(self)
+        if filename:
+            self.innerHTML = open(filename).read()
+        for obj in objlist: self <= obj
 
 class CanvasObject(svg.svg):
     '''Wrapper for SVG svg element.  Parameters:
@@ -637,6 +1138,8 @@ class CanvasObject(svg.svg):
         self.bind("touchend", self._onLeftUp)
         self.bind("dragstart", self._onDragStart)
         self.bind("dblclick", self._onDoubleClick)
+        self.bind("contextmenu", self._onRightClick)
+        self.bind("wheel", self._onWheel)
         document.bind("keydown", self._onKeyDown)
 
     # Methods available to end-users
@@ -871,6 +1374,13 @@ class CanvasObject(svg.svg):
             self.hittargets.append(newobj)
             self.addObject(newobj)
 
+    def _onWheel(self, event):
+        if self.mouseMode == MouseMode.PAN:
+            event.preventDefault()
+            zoomfactor = 0.9 if event.deltaY < 0 else 1.1
+            newviewbox = [self.centre + zoomfactor*(point - self.centre) for point in self.viewBoxRect]
+            self.setViewBox(newviewbox)
+
     def _onRightClick(self, event):
         event.preventDefault()
 
@@ -879,27 +1389,27 @@ class CanvasObject(svg.svg):
 
     def _onTouchStart(self, event):
         event.preventDefault()
-        #global lasttaptime
-        #latesttaptime = time.time()
-        #if latesttaptime - lasttaptime < 0.3:
-        #    for function in self.events("dblclick"):
-        #        function(event)
-        #else:
-        self._onLeftDown(event)
-        #lasttaptime = latesttaptime
+        global lasttaptime
+        latesttaptime = time.time()
+        if event.touches.length == 1 and latesttaptime - lasttaptime < 0.3:
+            for function in self.events("dblclick"):
+                function(event)
+        else:
+            self._onLeftDown(event)
+        lasttaptime = latesttaptime
 
     def _onMouseDown(self, event):
+        event.preventDefault()
         if not self.mouseDetected:
             self.mouseDetected = True
             for obj in self.objectDict.values():
                 if hasattr(obj, "reference"):
                     if isinstance(obj.reference, UseObject): continue
                     obj.style.strokeWidth = 10*self.scaleFactor
-        if event.button > 0: return
+        if self.mouseMode != MouseMode.PAN and event.button > 0: return
         self._onLeftDown(event)
 
     def _onLeftDown(self, event):
-        #event.preventDefault()
         if self.mouseMode == MouseMode.DRAG:
             self._prepareDrag(event)
         elif self.mouseMode == MouseMode.TRANSFORM:
@@ -957,7 +1467,10 @@ class CanvasObject(svg.svg):
             obj.reference.dispatchEvent(newevent)
 
     def _onDoubleClick(self, event):
-        if self.mouseMode == MouseMode.DRAW: self.setTool("select")
+        if self.mouseMode == MouseMode.DRAW:
+            self.setTool("select")
+        elif self.mouseMode == MouseMode.PAN:
+            self.fitContents()
 
     def _onKeyDown(self, event):
         if event.keyCode == 46: self.deleteSelection()
@@ -994,6 +1507,11 @@ class CanvasObject(svg.svg):
         if not self.centre:
             (width, height) = self._getDimensions()
             self.setViewBox([(0,0), (width,height)])
+        if "touch" in event.type and event.touches.length == 2:
+            point0 = Point((event.touches[0].clientX, event.touches[0].clientY))
+            point1 = Point((event.touches[1].clientX, event.touches[1].clientY))
+            self.startZoomLength = (point1-point0).length()
+            #print(point0, point1, self.startZoomLength)
         x = event.targetTouches[0].clientX if "touch" in event.type else event.clientX
         y = event.targetTouches[0].clientY if "touch" in event.type else event.clientY
         self.startPoint = Point((x, y))
@@ -1002,17 +1520,34 @@ class CanvasObject(svg.svg):
         self.panning = True
 
     def _doPan(self, event):
-        x = event.targetTouches[0].clientX if "touch" in event.type else event.clientX
-        y = event.targetTouches[0].clientY if "touch" in event.type else event.clientY
-        sf = (self.xScaleFactor, self.yScaleFactor) if self.attrs["preserveAspectRatio"] == "none" else self.scaleFactor
-        delta = (Point((x, y)) - self.startPoint)*sf
-        #self.centre = self.startCentre - delta
-        newviewbox = [point-delta for point in self.panStart]
-        self.setViewBox(newviewbox)
+        if "touch" in event.type and event.touches.length == 2:
+            point0 = Point((event.touches[0].clientX, event.touches[0].clientY))
+            point1 = Point((event.touches[1].clientX, event.touches[1].clientY))
+            newzoomlength = (point1-point0).length()
+            zoomfactor = self.startZoomLength/newzoomlength
+            #print(zoomfactor)
+            newviewbox = [self.centre + zoomfactor*(point - self.centre) for point in self.viewBoxRect]
+            self.setViewBox(newviewbox)
+            self.startZoomLength = newzoomlength
+        else:
+            x = event.targetTouches[0].clientX if "touch" in event.type else event.clientX
+            y = event.targetTouches[0].clientY if "touch" in event.type else event.clientY
+            sf = (self.xScaleFactor, self.yScaleFactor) if self.attrs["preserveAspectRatio"] == "none" else self.scaleFactor
+            delta = (Point((x, y)) - self.startPoint)*sf
+            #self.centre = self.startCentre - delta
+            newviewbox = [point-delta for point in self.panStart]
+            self.setViewBox(newviewbox)
 
     def _endPan(self, event):
+        """
+        if self.centre == self.startCentre:
+            if event.button > 0:
+                newviewbox = [self.centre + 1.1*(point - self.centre) for point in self.viewBoxRect]
+            else:
+                newviewbox = [self.centre + 0.9*(point - self.centre) for point in self.viewBoxRect]
+            self.setViewBox(newviewbox)
+        """
         self.panning = False
-        #print(f"pan: new centre {self.centre}, new viewbox {self.viewBoxRect}")
 
     def getSelectedObject(self, objectid, getGroup = True):
         '''Returns the object on the canvas identified by `id`.
@@ -1184,6 +1719,24 @@ class Point(object):
         x, y = self.coords
         return Point((roundsf(x, sf), roundsf(y, sf)))
 
+class Matrix(object):
+    def __init__(self, rows):
+        self.rows = rows
+        self.cols = [Point([self.rows[i][j] for i in range(len(self.rows))]) for j in range(len(self.rows[0]))]
+
+    def __str__(self):
+        return str("\n".join(str(row) for row in self.rows))
+
+    def __rmul__(self, other):
+        if isinstance(other, (list, tuple)):
+            return [Point([p*col for col in self.cols]) for p in other]
+        else:
+            return Point([other*col for col in self.cols])
+
 def roundsf(x, sf=3):
     if x == 0: return 0
     return round(x, sf-int(floor(log10(abs(x))))-1)
+
+shapetypes = {"line":LineObject, "polygon":PolygonObject, "polyline":PolylineObject,
+"rectangle":RectangleObject, "ellipse":EllipseObject, "circle":CircleObject,
+"bezier":BezierObject, "closedbezier":ClosedBezierObject, "smoothbezier":SmoothBezierObject, "smoothclosedbezier":SmoothClosedBezierObject}
