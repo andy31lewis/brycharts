@@ -177,8 +177,87 @@ class CumulativeFrequencyData(list):
             cumfrequencies[i] = cumfrequencies[i-1] + frequencies[i-1]
         return list(zip(boundaries, cumfrequencies))
 
+class Tooltip(SVG.TextObject):
+    def __init__(self, canvas, text, coords):
+        super().__init__(text, coords, anchorposition=5)
+        canvas.tooltips.append(self)
+        self.canvas = canvas
+        self.coords = coords
+        self._background = None
+        self.style.pointerEvents = "none"
+        self.style.visibility = "hidden"
+
+    def show(self):
+        for t in self.canvas.tooltips:
+            t.style.visibility = "hidden"
+            if t._background: t._background.style.visibility = "hidden"
+        self.style.visibility = "visible"
+        if not self._background:
+            bbox = self.getBBox()
+            width, height = bbox.width, bbox.height
+            x, y = self.coords
+            #print(bbox.x, bbox.y, bbox.width, bbox.height)
+            self._background  = SVG.RectangleObject([(x-width/2, y-height/2), (x+width/2, y+height/2)], linecolour="#d3d3d3d0", fillcolour="#d3d3d3d0")
+            self.canvas.addObject(self._background)
+            self._background.style.pointerEvents = "none"
+        self._background.style.visibility = "visible"
+
+    def hide(self):
+        self.style.visibility = "hidden"
+        #self.canvas.deleteObject(self._background)
+        self._background.style.visibility = "hidden"
+
+class AxesTooltip(bryaxes.AxesTextObject):
+    def __init__(self, canvas, text, coords):
+        super().__init__(canvas, text, coords, anchorposition=8)
+        canvas.tooltips.append(self)
+        self.canvas = canvas
+        self.coords = coords
+        self._background = None
+        self.style.pointerEvents = "none"
+        self.style.visibility = "hidden"
+
+    def show(self):
+        for t in self.canvas.tooltips:
+            t.style.visibility = "hidden"
+            if t._background: self.canvas.container.removeObject(t._background)
+        self.style.visibility = "visible"
+        #if not self._background:
+        bbox = self.getBBox()
+        width, height = bbox.width*self.canvas.xScaleFactor, bbox.height*self.canvas.yScaleFactor
+        x, y = self.coords
+        #print(bbox.x, bbox.y, bbox.width, bbox.height)
+        self._background  = SVG.RectangleObject([(x-width/2, y+height), (x+width/2, y)], linecolour="#d3d3d3d0", fillcolour="#d3d3d3d0")
+        self.canvas.attachObject(self._background)
+        self._background.style.pointerEvents = "none"
+        #self._background.style.visibility = "visible"
+
+    def hide(self):
+        self.style.visibility = "hidden"
+        self.canvas.container.removeObject(self._background)
+        #self._background.style.visibility = "hidden"
+
+class Bar(list):
+    def __init__(self, canvas, pointlist, key, value, colour):
+        self.canvas = canvas
+        self.bar = SVG.RectangleObject(pointlist, fillcolour=colour)
+        tooltiptext = f"{key}\n{value}" if key else f"{value}"
+        centre = (self.bar.pointList[0] + self.bar.pointList[1])/2
+        self.tooltip = AxesTooltip(canvas, tooltiptext, centre)
+        super().__init__([self.bar, self.tooltip])
+        self.bar.bind("mouseenter", self.showtooltip)
+        self.bar.bind("touchstart", self.showtooltip)
+        self.bar.bind("mouseleave", self.hidetooltip)
+
+    def showtooltip(self, event):
+        self.tooltip.show()
+        self.canvas.container <= self.tooltip
+
+    def hidetooltip(self, event):
+        self.tooltip.hide()
+
 class Bars(SVG.GroupObject):
-    def __init__(self, data, graphtype=None, index=None, key=None, colour="yellow"):
+    def __init__(self, canvas, data, graphtype=None, index=None, key=None, colour="yellow"):
         super().__init__()
         if graphtype == "stacked":
             barminvalues = [sums[index] for sums in data.sums.values()]
@@ -198,7 +277,7 @@ class Bars(SVG.GroupObject):
 
         for i in range(len(data.labels)):
             [barstart, barend] = [i*100+offset, i*100+offset+barwidth]
-            self.addObject(SVG.RectangleObject([(barstart, barmaxvalues[i]), (barend,barminvalues[i])], fillcolour=colour))
+            self.addObjects(Bar(canvas, [(barstart, barmaxvalues[i]), (barend,barminvalues[i])], key, data[key].Values[i], colour))
 
 class BarChart(bryaxes.AxesCanvas):
     def __init__(self, parent, ld, title="", width="95%", height="95%", colour="yellow", fontsize=16):
@@ -213,14 +292,14 @@ class BarChart(bryaxes.AxesCanvas):
         self.fitContents()
 
 class StackedBarChart(bryaxes.AxesCanvas):
-    def __init__(self, parent, ldd, title="", width="95%", height="95%", colours=None, fontsize=16, objid=None):
+    def __init__(self, parent, ldd, title="", width="95%", height="95%", colours=None, fontsize=14, objid=None):
         if not colours: colours = DEFAULT_COLOURS
         xaxis = bryaxes.Axis(0, 100*len(ldd.labels), label="", showScale=False,
                             showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
         yaxis = bryaxes.Axis(0, ldd.maxSum, ldd.axisLabel)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         for i, key in enumerate(ldd.keys()):
-            self.attachObject(Bars(ldd, "stacked", i, key, colours[i]))
+            self.attachObject(Bars(self, ldd, "stacked", i, key, colours[i]))
         for i in range(len(ldd.labels)):
             label = bryaxes.AxesWrappingTextObject(self, ldd.labels[i], (i*100+60, 0), 80, fontsize=fontsize)
             self.attachObject(label)
@@ -237,14 +316,14 @@ class StackedBarChart(bryaxes.AxesCanvas):
         self.fitContents()
 
 class GroupedBarChart(bryaxes.AxesCanvas):
-    def __init__(self, parent, ldd, title="", width="95%", height="95%", colours=None, fontsize=16, objid=None):
+    def __init__(self, parent, ldd, title="", width="95%", height="95%", colours=None, fontsize=14, objid=None):
         if not colours: colours = DEFAULT_COLOURS
         xaxis = bryaxes.Axis(0, 100*len(ldd.labels), label="", showScale=False,
                             showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
         yaxis = bryaxes.Axis(0, ldd.maxValue, ldd.axisLabel)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         for i, key in enumerate(ldd.keys()):
-            self.attachObject(Bars(ldd, "grouped", i, key, colours[i]))
+            self.attachObject(Bars(self, ldd, "grouped", i, key, colours[i]))
         for i in range(len(ldd.labels)):
             label = bryaxes.AxesWrappingTextObject(self, ldd.labels[i], (i*100+60, 0), 80, fontsize=fontsize)
             self.attachObject(label)
@@ -297,33 +376,23 @@ class CumulativePercentageGraph(bryaxes.AxesCanvas):
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis)
         self.attachObject(CumulativePercentageLine(cfd))
 
-class DataPoints(SVG.GroupObject):
-    def __init__(self, canvas, paireddata, colour="red"):
-        super().__init__()
-        for dp in paireddata:
-            self.addObject(bryaxes.AxesPoint(canvas, dp, colour))
-
-class LabelledDataPoint(SVG.GroupObject):
+class DataPoint(list):
     def __init__(self, canvas, label, coords, colour="red", objid=None):
-        super().__init__()
+        self.canvas = canvas
         self.point = bryaxes.AxesPoint(canvas, coords, colour)
-        self.label = bryaxes.AxesTextObject(canvas, f"{label}\n{coords}", coords, anchorposition=8)
-        self.label.style.visibility = "hidden"
-        self.addObjects([self.point, self.label])
-        self.point.bind("mouseenter", self.showlabel)
-        self.point.bind("mouseleave", self.hidelabel)
+        tooltiptext = f"{label}\n{coords}" if label else f"{coords}"
+        self.tooltip = AxesTooltip(canvas, tooltiptext, coords)
+        super().__init__([self.point, self.tooltip])
+        self.point.bind("mouseenter", self.showtooltip)
+        self.point.bind("touchstart", self.showtooltip)
+        self.point.bind("mouseleave", self.hidetooltip)
 
-    def showlabel(self, event):
-        self.label.style.visibility = "visible"
+    def showtooltip(self, event):
+        self.tooltip.show()
+        self.canvas.container <= self.tooltip
 
-    def hidelabel(self, event):
-        self.label.style.visibility = "hidden"
-
-class LabelledDataPoints(SVG.GroupObject):
-    def __init__(self, canvas, lpd, colour="red"):
-        super().__init__()
-        for index, (label, coords) in enumerate(lpd.items()):
-            self.addObject(LabelledDataPoint(canvas, label, coords, colour, objid=f"{canvas.id}_dp_{index}"))
+    def hidetooltip(self, event):
+        self.tooltip.hide()
 
 class RegressionLine(SVG.LineObject):
     def __init__(self, data):
@@ -339,9 +408,10 @@ class ScatterGraph(bryaxes.AxesCanvas):
         yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=True)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis)
         if isinstance(data, LabelledPairedData):
-            self.attachObject(LabelledDataPoints(self, data, colour))
+            self.dataPoints = [DataPoint(self, label, coords, colour) for (label, coords) in data.items()]
         else:
-            self.attachObject(DataPoints(self, data, colour))
+            self.dataPoints = [DataPoint(self, None, coords, colour) for coords in data]
+        self.attachObjects(self.dataPoints)
         if showRegressionLine: self.attachObject(RegressionLine(data))
 
 class LineGraph(bryaxes.AxesCanvas):
@@ -349,16 +419,17 @@ class LineGraph(bryaxes.AxesCanvas):
         xaxis = bryaxes.Axis(datavalues.xMin, datavalues.xMax, datavalues.xLabel, showMajorGrid=True, showMinorGrid=True)
         yaxis = bryaxes.Axis(datavalues.yMin, datavalues.yMax, datavalues.yLabel, showMajorGrid=True, showMinorGrid=True)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis)
+        if not colours: colours = DEFAULT_COLOURS
         if isinstance(datavalues, PairedData):
             self.attachObject(SVG.PolylineObject(datavalues, linecolour=colours[0]))
         else:
-            if not colours: colours = DEFAULT_COLOURS
             keywidth = 20*self.xScaleFactor
             keyheight = fontsize*2*self.yScaleFactor
             keypos = SVG.Point((self.xAxis.max + keywidth, self.yAxis.max))
             keydata = []
             for i, (key, pd) in enumerate(datavalues.items()):
                 self.attachObject(SVG.PolylineObject(pd, linecolour=colours[i], linewidth=2))
+                self.attachObjects([DataPoint(self, key, coords, colours[i]) for coords in pd])
                 keydata.append((pd.yValues[-1], key, colours[i]))
             keydata.sort(key = lambda x: -x[0])
             for (_, key, colour) in keydata:
@@ -395,10 +466,30 @@ class BoxPlotCanvas(bryaxes.AxesCanvas):
             yheight += 50
         self.fitContents()
 
+class PieChartSector(list):
+    def __init__(self, canvas, centre, radius, startangle, endangle, label, value, percentage, colour):
+        self.canvas = canvas
+        self.sector = SVG.SectorObject(centre, radius, startangle, endangle, fillcolour=colour)
+        tooltiptext = f"{label}\n{value} ({percentage:.2f}%)"
+        centre = (self.sector.pointList[0] + self.sector.pointList[1] + self.sector.pointList[2])/3
+        self.tooltip = Tooltip(canvas, tooltiptext, centre)
+        super().__init__([self.sector, self.tooltip])
+        self.sector.bind("mouseenter", self.showtooltip)
+        self.sector.bind("touchstart", self.showtooltip)
+        self.sector.bind("mouseleave", self.hidetooltip)
+
+    def showtooltip(self, event):
+        self.tooltip.show()
+        self.canvas <= self.tooltip
+
+    def hidetooltip(self, event):
+        self.tooltip.hide()
+
 class PieChart(SVG.CanvasObject):
     def __init__(self, parent, data, title="", width="95%", height="95%", colours=None, usekey=True, fontsize=12, objid=None):
         super().__init__(width, height, objid=objid)
         parent <= self
+        self.tooltips = []
         if not colours: colours = DEFAULT_COLOURS
         if not usekey:
             data = data.items()
@@ -411,9 +502,10 @@ class PieChart(SVG.CanvasObject):
         angles = [0]
         for percentage in data.percentages:
             angles.append(angles[-1] + percentage*3.6)
-        self.sectors = SVG.GroupObject([SVG.SectorObject((0,0), 100, angles[i], angles[i+1], fillcolour=colours[i]) for i in range(len(angles)-1)])
-        self.addObject(self.sectors)
+        self.sectors = [PieChartSector(self, (0,0), 100, angles[i], angles[i+1], data.labels[i], data.Values[i], data.percentages[i], colours[i]) for i in range(len(angles)-1)]
+        self.addObjects(self.sectors)
         self.fitContents()
+        self.mouseMode = SVG.MouseMode.PAN
 
         if usekey:
             keysize = fontsize*1.25
@@ -435,7 +527,3 @@ class PieChart(SVG.CanvasObject):
             titlepos = (0, -130)
         if title: self.addObject(SVG.TextObject(title, titlepos, anchorposition=8, fontsize=fontsize))
         self.fitContents()
-
-
-
-
