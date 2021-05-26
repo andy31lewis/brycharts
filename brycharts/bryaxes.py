@@ -15,26 +15,37 @@
 from .roundfns import *
 from math import isnan, log10
 from . import dragcanvas as SVG
+import browser.svg as svg
 
-class AxesTextObject(SVG.TextObject):
+class ScaledObjectMixin():
+    def rescale(self, canvas):
+        (x, y) = self.anchorPoint
+        #self.style.transform = f"translate({x}px,{y}px) scale({canvas.xScaleFactor},{-canvas.yScaleFactor}) translate({-x}px,{-y}px)"
+        self.attrs["transform"] = f"translate({x},{y}) scale({canvas.xScaleFactor},{-canvas.yScaleFactor}) translate({-x},{-y})"
+
+class AxesTextObject(SVG.TextObject, ScaledObjectMixin):
     def __init__(self, canvas, string="", anchorpoint=(0,0), anchorposition=1, fontsize=12):
         super().__init__(string, anchorpoint, anchorposition, fontsize)
-        self.anchorPoint = (x, y) = anchorpoint
-        #self.style.transform = f"translate({x}px,{y}px) scale({canvas.xScaleFactor},{-canvas.yScaleFactor}) translate({-x}px,{-y}px)"
-        self.attrs["transform"] = f"translate({x},{y}) scale({canvas.xScaleFactor},{-canvas.yScaleFactor}) translate({-x},{-y})"
+        self.anchorPoint = anchorpoint
+        self.rescale(canvas)
 
-class AxesWrappingTextObject(SVG.WrappingTextObject):
+class AxesWrappingTextObject(SVG.WrappingTextObject, ScaledObjectMixin):
     def __init__(self, canvas, string="", anchorpoint=(0,0), width=80, anchorposition=2, fontsize=12):
         super().__init__(canvas, string, anchorpoint, width/canvas.xScaleFactor, anchorposition, fontsize)
-        self.anchorPoint = (x, y) = anchorpoint
-        #self.style.transform = f"translate({x}px,{y}px) scale({canvas.xScaleFactor},{-canvas.yScaleFactor}) translate({-x}px,{-y}px)"
-        self.attrs["transform"] = f"translate({x},{y}) scale({canvas.xScaleFactor},{-canvas.yScaleFactor}) translate({-x},{-y})"
+        self.anchorPoint = anchorpoint
+        self.rescale(canvas)
 
-class AxesPoint(SVG.PointObject):
-    def __init__(self, canvas, XY=(0,0), colour="black", pointsize=2, objid=None):
-        super().__init__(XY, colour, pointsize, objid=objid)
-        self.anchorPoint = (x, y) = XY
-        self.attrs["transform"] = f"translate({x},{y}) scale({canvas.xScaleFactor},{-canvas.yScaleFactor}) translate({-x},{-y})"
+class AxesPoint(svg.circle, ScaledObjectMixin):
+    def __init__(self, canvas, XY=(0,0), colour="black", objid=None):
+        (x, y) = XY
+        sf = canvas.scaleFactor
+        svg.circle.__init__(self, cx=x, cy=y, r=3, style={"stroke":"#00000000", "stroke-width":5, "fill":colour, "vector-effect":"non-scaling-stroke"})
+        self.anchorPoint = self.XY = SVG.Point(XY)
+        self.rescale(canvas)
+        if objid: self.id = objid
+
+    def _update(self):
+        pass
 
 class Axis(object):
     def __init__(self, Min, Max, label, fontsize=12,
@@ -137,21 +148,19 @@ class AxesCanvas(SVG.CanvasObject):
             else:
                 self.container.addObject(obj)
 
-    def setViewBox(self, pointlist):
-        super().setViewBox(pointlist)
-        print("Using bryaxes setViewBox")
-        for objid in self.objectDict:
-            obj = self.objectDict[objid]
-            if isinstance(obj, (AxesTextObject, AxesWrappingTextObject, AxesPoint)):
-                (x, y) = obj.anchorPoint
-                obj.attrs["transform"] = f"translate({x},{y}) scale({self.xScaleFactor},{-self.yScaleFactor}) translate({-x},{-y})"
+    def rescaleObjects(self):
+        print("Using bryaxes rescaleObjects")
+        for obj in self.objectDict.values():
+            if isinstance(obj, ScaledObjectMixin):
+                obj.rescale(self)
 
     def fitContents(self):
         super().fitContents()
+        self.rescaleObjects()
         super().fitContents()
 
+    """
     def makeXScaleValue(self, x, y):
-        """
         if param(xAxis,PiScaling)=1:
             ApproxDecimaltoFraction(x/3.14159,99,FracPi())
             if FracPi(0)=1:
@@ -167,12 +176,11 @@ class AxesCanvas(SVG.CanvasObject):
                 Denominator="/" & CStr(FracPi(1))
                 ScaleString=Numerator & "π" & Denominator
         else:
-        """
-        pass
+    """
 
     def drawAxes(self, xAxis, yAxis):
         if xAxis.max <= xAxis.min or yAxis.max <= yAxis.min: return
-        self.setViewBox([(xAxis.min, yAxis.min), (xAxis.max, yAxis.max)])
+        self.setViewBox([(xAxis.min, -yAxis.max), (xAxis.max, -yAxis.min)])
         xAxis.tickLength = 10*self.yScaleFactor
         yAxis.tickLength = 10*self.xScaleFactor
         xAxis.position = yAxis.min if yAxis.min > 0 else yAxis.max if yAxis.max < 0 else 0
@@ -238,4 +246,4 @@ class AxesCanvas(SVG.CanvasObject):
             self.attachObject(self.yAxisObjects)
             if self.title:
                 self.attachObject(AxesTextObject(self, self.title, ((xAxis.min+xAxis.max)/2, yAxis.max+1.5*yAxis.fontsize*self.yScaleFactor), 8, yAxis.fontsize*1.25))
-            self.fitContents()
+        self.fitContents()
