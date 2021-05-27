@@ -214,7 +214,7 @@ class AxesTooltip(bryaxes.AxesTextObject):
         self.canvas.tooltips.append(self)
 
     def setBackground(self):
-       bbox = self.getBBox()
+        bbox = self.getBBox()
         width, height = bbox.width*self.canvas.xScaleFactor, bbox.height*self.canvas.yScaleFactor
         x, y = self.coords
         self._background  = SVG.RectangleObject([(x-width/2, y+height), (x+width/2, y)], linecolour="#d3d3d3d0", fillcolour="#d3d3d3d0")
