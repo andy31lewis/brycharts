@@ -180,78 +180,64 @@ class CumulativeFrequencyData(list):
 class Tooltip(SVG.TextObject):
     def __init__(self, canvas, text, coords):
         super().__init__(text, coords, anchorposition=5)
-        canvas.tooltips.append(self)
         self.canvas = canvas
         self.coords = coords
         self._background = None
         self.style.pointerEvents = "none"
-        self.style.visibility = "hidden"
+        self.canvas.addObject(self)
+        self.setBackground()
+        self.canvas <= self
+        self.canvas.tooltips.append(self)
 
-    def show(self):
-        for t in self.canvas.tooltips:
-            t.style.visibility = "hidden"
-            if t._background: t._background.style.visibility = "hidden"
-        self.style.visibility = "visible"
-        if not self._background:
-            bbox = self.getBBox()
-            width, height = bbox.width, bbox.height
-            x, y = self.coords
-            #print(bbox.x, bbox.y, bbox.width, bbox.height)
-            self._background  = SVG.RectangleObject([(x-width/2, y-height/2), (x+width/2, y+height/2)], linecolour="#d3d3d3d0", fillcolour="#d3d3d3d0")
-            self.canvas.addObject(self._background)
-            self._background.style.pointerEvents = "none"
-        self._background.style.visibility = "visible"
+    def setBackground(self):
+        bbox = self.getBBox()
+        width, height = bbox.width, bbox.height
+        x, y = self.coords
+        self._background  = SVG.RectangleObject([(x-width/2, y-height/2), (x+width/2, y+height/2)], linecolour="#d3d3d3d0", fillcolour="#d3d3d3d0")
+        self.canvas.addObject(self._background)
+        self._background.style.pointerEvents = "none"
 
     def hide(self):
-        self.style.visibility = "hidden"
-        #self.canvas.deleteObject(self._background)
-        self._background.style.visibility = "hidden"
+        self.canvas.deleteObject(self._background)
+        self.canvas.deleteObject(self)
 
 class AxesTooltip(bryaxes.AxesTextObject):
     def __init__(self, canvas, text, coords):
         super().__init__(canvas, text, coords, anchorposition=8)
-        canvas.tooltips.append(self)
         self.canvas = canvas
         self.coords = coords
         self._background = None
         self.style.pointerEvents = "none"
-        self.style.visibility = "hidden"
+        self.canvas.attachObject(self)
+        self.setBackground()
+        self.canvas.container <= self
+        self.canvas.tooltips.append(self)
 
-    def show(self):
-        for t in self.canvas.tooltips:
-            t.style.visibility = "hidden"
-            if t._background: self.canvas.container.removeObject(t._background)
-        self.style.visibility = "visible"
-        #if not self._background:
-        bbox = self.getBBox()
+    def setBackground(self):
+       bbox = self.getBBox()
         width, height = bbox.width*self.canvas.xScaleFactor, bbox.height*self.canvas.yScaleFactor
         x, y = self.coords
-        #print(bbox.x, bbox.y, bbox.width, bbox.height)
         self._background  = SVG.RectangleObject([(x-width/2, y+height), (x+width/2, y)], linecolour="#d3d3d3d0", fillcolour="#d3d3d3d0")
         self.canvas.attachObject(self._background)
         self._background.style.pointerEvents = "none"
-        #self._background.style.visibility = "visible"
 
     def hide(self):
-        self.style.visibility = "hidden"
         self.canvas.container.removeObject(self._background)
-        #self._background.style.visibility = "hidden"
+        self.canvas.container.removeObject(self)
 
-class Bar(list):
+class Bar(SVG.RectangleObject):
     def __init__(self, canvas, pointlist, key, value, colour):
+        super().__init__(pointlist, fillcolour=colour)
         self.canvas = canvas
-        self.bar = SVG.RectangleObject(pointlist, fillcolour=colour)
-        tooltiptext = f"{key}\n{value}" if key else f"{value}"
-        centre = (self.bar.pointList[0] + self.bar.pointList[1])/2
-        self.tooltip = AxesTooltip(canvas, tooltiptext, centre)
-        super().__init__([self.bar, self.tooltip])
-        self.bar.bind("mouseenter", self.showtooltip)
-        self.bar.bind("touchstart", self.showtooltip)
-        self.bar.bind("mouseleave", self.hidetooltip)
+        self.tooltiptext = f"{key}\n{value}" if key else f"{value}"
+        self.centre = (self.pointList[0] + self.pointList[1])/2
+        self.bind("mouseenter", self.showtooltip)
+        self.bind("touchstart", self.showtooltip)
+        self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        self.tooltip.show()
-        self.canvas.container <= self.tooltip
+        for tooltip in self.canvas.tooltips: tooltip.hide()
+        self.tooltip = AxesTooltip(self.canvas, self.tooltiptext, self.centre)
 
     def hidetooltip(self, event):
         self.tooltip.hide()
@@ -277,7 +263,7 @@ class Bars(SVG.GroupObject):
 
         for i in range(len(data.labels)):
             [barstart, barend] = [i*100+offset, i*100+offset+barwidth]
-            self.addObjects(Bar(canvas, [(barstart, barmaxvalues[i]), (barend,barminvalues[i])], key, data[key].Values[i], colour))
+            self.addObject(Bar(canvas, [(barstart, barmaxvalues[i]), (barend,barminvalues[i])], key, data[key].Values[i], colour))
 
 class BarChart(bryaxes.AxesCanvas):
     def __init__(self, parent, ld, title="", width="95%", height="95%", colour="yellow", fontsize=16):
@@ -376,20 +362,19 @@ class CumulativePercentageGraph(bryaxes.AxesCanvas):
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis)
         self.attachObject(CumulativePercentageLine(cfd))
 
-class DataPoint(list):
+class DataPoint(bryaxes.AxesPoint):
     def __init__(self, canvas, label, coords, colour="red", objid=None):
+        super().__init__(canvas, coords, colour)
         self.canvas = canvas
-        self.point = bryaxes.AxesPoint(canvas, coords, colour)
-        tooltiptext = f"{label}\n{coords}" if label else f"{coords}"
-        self.tooltip = AxesTooltip(canvas, tooltiptext, coords)
-        super().__init__([self.point, self.tooltip])
-        self.point.bind("mouseenter", self.showtooltip)
-        self.point.bind("touchstart", self.showtooltip)
-        self.point.bind("mouseleave", self.hidetooltip)
+        self.coords = coords
+        self.tooltiptext = f"{label}\n{coords}" if label else f"{coords}"
+        self.bind("mouseenter", self.showtooltip)
+        self.bind("touchstart", self.showtooltip)
+        self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        self.tooltip.show()
-        self.canvas.container <= self.tooltip
+        for tooltip in self.canvas.tooltips: tooltip.hide()
+        self.tooltip = AxesTooltip(self.canvas, self.tooltiptext, self.coords)
 
     def hidetooltip(self, event):
         self.tooltip.hide()
@@ -466,21 +451,19 @@ class BoxPlotCanvas(bryaxes.AxesCanvas):
             yheight += 50
         self.fitContents()
 
-class PieChartSector(list):
+class PieChartSector(SVG.SectorObject):
     def __init__(self, canvas, centre, radius, startangle, endangle, label, value, percentage, colour):
+        super().__init__(centre, radius, startangle, endangle, fillcolour=colour)
         self.canvas = canvas
-        self.sector = SVG.SectorObject(centre, radius, startangle, endangle, fillcolour=colour)
-        tooltiptext = f"{label}\n{value} ({percentage:.2f}%)"
-        centre = (self.sector.pointList[0] + self.sector.pointList[1] + self.sector.pointList[2])/3
-        self.tooltip = Tooltip(canvas, tooltiptext, centre)
-        super().__init__([self.sector, self.tooltip])
-        self.sector.bind("mouseenter", self.showtooltip)
-        self.sector.bind("touchstart", self.showtooltip)
-        self.sector.bind("mouseleave", self.hidetooltip)
+        self.centre = (self.pointList[0] + self.pointList[1] + self.pointList[2])/3
+        self.tooltiptext = f"{label}\n{value} ({percentage:.2f}%)"
+        self.bind("mouseenter", self.showtooltip)
+        self.bind("touchstart", self.showtooltip)
+        self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        self.tooltip.show()
-        self.canvas <= self.tooltip
+        for tooltip in self.canvas.tooltips: tooltip.hide()
+        self.tooltip = Tooltip(self.canvas, self.tooltiptext, self.centre)
 
     def hidetooltip(self, event):
         self.tooltip.hide()
@@ -506,6 +489,7 @@ class PieChart(SVG.CanvasObject):
         self.addObjects(self.sectors)
         self.fitContents()
         self.mouseMode = SVG.MouseMode.PAN
+        self.bind("touchstart", self.clearTooltips)
 
         if usekey:
             keysize = fontsize*1.25
@@ -527,3 +511,7 @@ class PieChart(SVG.CanvasObject):
             titlepos = (0, -130)
         if title: self.addObject(SVG.TextObject(title, titlepos, anchorposition=8, fontsize=fontsize))
         self.fitContents()
+
+    def clearTooltips(self, event):
+        if event.target != self: return
+        for tooltip in self.tooltips: tooltip.hide()

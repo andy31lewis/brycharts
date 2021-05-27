@@ -135,6 +135,7 @@ class AxesCanvas(SVG.CanvasObject):
         self.lineWidthScaling = False
         self.title = title
         self.tooltips = []
+        self.bind("touchstart", self.clearTooltips)
 
         self.drawAxes(xAxis, yAxis)
 
@@ -158,6 +159,10 @@ class AxesCanvas(SVG.CanvasObject):
         super().fitContents()
         self.rescaleObjects()
         super().fitContents()
+
+    def clearTooltips(self, event):
+        if event.target != self: return
+        for tooltip in self.tooltips: tooltip.hide()
 
     """
     def makeXScaleValue(self, x, y):
