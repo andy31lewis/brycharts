@@ -803,7 +803,7 @@ class PointObject(svg.circle, ObjectMixin):
     def __init__(self, XY=(0,0), colour="black", pointsize=2, canvas=None, objid=None):
         (x, y) = XY
         sf = canvas.scaleFactor if canvas else 1
-        svg.circle.__init__(self, cx=x, cy=y, r=(pointsize+1)*sf, style={"stroke":"#00000000", "stroke-width":3, "fill":colour, "vector-effect":"non-scaling-stroke"})
+        svg.circle.__init__(self, cx=x, cy=y, r=pointsize*sf, style={"stroke":colour, "stroke-width":1, "fill":colour, "vector-effect":"non-scaling-stroke"})
         self._XY = None
         self.XY = Point(XY)
         if objid: self.id = objid
@@ -1316,7 +1316,7 @@ class CanvasObject(svg.svg):
 
     @mouseMode.setter
     def mouseMode(self, mm):
-        if mm in [MouseMode.DRAG, MouseMode.EDIT, MouseMode.TRANSFORM]:
+        if mm in [MouseMode.PAN, MouseMode.DRAG, MouseMode.EDIT, MouseMode.TRANSFORM]:
             self.createHitTargets()
         currentmm = getattr(self, "_mouseMode", None)
         if currentmm == mm: return
@@ -1382,7 +1382,8 @@ class CanvasObject(svg.svg):
             self.setViewBox(newviewbox)
 
     def _onRightClick(self, event):
-        event.preventDefault()
+        #event.preventDefault()
+        pass
 
     def _onDragStart(self, event):
         event.preventDefault()
@@ -1406,7 +1407,7 @@ class CanvasObject(svg.svg):
                 if hasattr(obj, "reference"):
                     if isinstance(obj.reference, UseObject): continue
                     obj.style.strokeWidth = 10*self.scaleFactor
-        if self.mouseMode != MouseMode.PAN and event.button > 0: return
+        if event.button > 0: return
         self._onLeftDown(event)
 
     def _onLeftDown(self, event):
@@ -1481,7 +1482,8 @@ class CanvasObject(svg.svg):
         if self.selectedObject and not self.selectedObject.fixed:
             self.mouseOwner = self.selectedObject
             self <= self.mouseOwner
-            if (hittarget := getattr(self.mouseOwner, "hitTarget", None)): self <= hittarget
+            hittarget = getattr(self.mouseOwner, "hitTarget", None)
+            if hittarget: self <= hittarget
             self.startx = event.targetTouches[0].clientX if "touch" in event.type else event.clientX
             self.starty = event.targetTouches[0].clientY if "touch" in event.type else event.clientY
 
@@ -1539,14 +1541,6 @@ class CanvasObject(svg.svg):
             self.setViewBox(newviewbox)
 
     def _endPan(self, event):
-        """
-        if self.centre == self.startCentre:
-            if event.button > 0:
-                newviewbox = [self.centre + 1.1*(point - self.centre) for point in self.viewBoxRect]
-            else:
-                newviewbox = [self.centre + 0.9*(point - self.centre) for point in self.viewBoxRect]
-            self.setViewBox(newviewbox)
-        """
         self.panning = False
 
     def getSelectedObject(self, objectid, getGroup = True):
@@ -1582,7 +1576,8 @@ class CanvasObject(svg.svg):
                 if not hasattr(obj, "pointList"): continue
                 if hasattr(obj, "reference"): continue
                 if obj.style.visibility == "hidden": continue
-                if objgroup := getattr(obj, "group", None) and hasattr(objgroup, "pointList") : continue
+                objgroup = getattr(obj, "group", None)
+                if objgroup and hasattr(objgroup, "pointList") : continue
                 bbox = obj.getBBox()
                 L1, R1, T1, B1 = bbox.x, bbox.x+bbox.width, bbox.y, bbox.y+bbox.height
                 if L1-R > snapd or R1-L < -snapd or T1-B > snapd or B1-T < -snapd: continue

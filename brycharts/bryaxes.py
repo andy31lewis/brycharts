@@ -249,6 +249,6 @@ class AxesCanvas(SVG.CanvasObject):
                 self.yAxisObjects.addObjects(GridLines("y", "major", yAxis, xAxis.min, xAxis.max, omit))
 
             self.attachObject(self.yAxisObjects)
-            if self.title:
-                self.attachObject(AxesTextObject(self, self.title, ((xAxis.min+xAxis.max)/2, yAxis.max+1.5*yAxis.fontsize*self.yScaleFactor), 8, yAxis.fontsize*1.25))
+        if self.title:
+            self.attachObject(AxesTextObject(self, self.title, ((xAxis.min+xAxis.max)/2, yAxis.max+1.5*yAxis.fontsize*self.yScaleFactor), 8, yAxis.fontsize*1.25))
         self.fitContents()
