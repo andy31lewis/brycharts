@@ -70,3 +70,14 @@ svg {
     border: 1px solid black;
     margin: auto;
 }
+
+table {
+    border-collapse: collapse;
+    background-color: #fbb0b0;
+}
+
+td, th {
+    text-align: center;
+    border: 1px solid black;
+
+}

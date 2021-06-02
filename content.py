@@ -3,22 +3,25 @@ introtext = """
 
 This is a Brython package for generating statistical charts.
 The Brython website is at https://brython.info
-brycharts can be found at https://github.com/andy31lewis/brycharts
+Full documentation for brycharts can be found at https://github.com/andy31lewis/brycharts
 
 Clicking on the tabs at the top of this page gives examples of the various types of graph which brycharts can produce.
 On the left of each page is:
 
 • a brief description of the graph(s).
 • a box showing how the data for the the graph(s) needs to organised using Python `list`s and/or `dict`s.
-• a box showing the code used to draw the graphs (just two lines of code per graph).
+• a box showing the code used to draw the graphs (essentially just two lines of code per graph).
 
 The data illustrated by these graphs is from the Numbeo website https://www.numbeo.com/cost-of-living/
+This gives information about average salaries and the cost of living in about 540 cities around the world.
+The table from which the graphs have been generated is shown on the next tab.
+This is stored internally as a `list` of `dicts`: each row is a `dict` with the column headings as keys.
 """
 
 piecharttext = """
 ## Pie Charts
 
-The file obtained from Numbeo has data about 540 different cities.  Data about the continents where they are located has been extracted as a Python `list` as shown in the first box below.
+Data about the continents where all 540 cities are located has been extracted as a Python `list` as shown in the first box below.
 
 The code in the second box then feeds this list into a `brycharts.FrequencyData` object. Then two `brycharts.PieChart` objects are created in the `div` on the right (which is called `self.chartbox`).
 
@@ -38,7 +41,7 @@ linegraphtext = """
 
 This shows the change in the cost of renting over a period of 10 years in four European cities.  It is interesting to see that rents in Dublin have nearly doubled, while renting in Rome has become cheaper.
 
-The extracted data is organised as as a `dict` of `lists`, as shown in the first box.  This is fed into a `brycharts.PairedDataDict`, and then displayed as a `brycharts.LineGraph`.
+The historical data for this chart comes from a different file.  It is organised as as a `dict` of `lists`, as shown in the first box.  This is fed into a `brycharts.PairedDataDict`, and then displayed as a `brycharts.LineGraph`.
 """
 
 scattergraphtext = """
@@ -46,7 +49,7 @@ scattergraphtext = """
 
 This compares the "Average Salary Index" with the "Cost of Living plus Rent Index" for all listed cities and towns in the United Kingdom. Those below the regression line will have a higher "Local Purchasing Power Index", since living costs are low compared to salaries.
 
-The extracted data is organised as a `list` of data pairs, as shown in the first box.  This is fed into a `brycharts.PairedData` object, and then displayed as a `brycharts.ScatterGraph`.
+The extracted data is organised as a `dict` whose values are data pairs, as shown in the first box.  This is fed into a `brycharts.LabelledPairedData` object, and then displayed as a `brycharts.ScatterGraph`.
 """
 
 boxplottext = """
@@ -70,7 +73,7 @@ These steps are then repeated, but instead of allowing the object to choose its 
 cumulativefrequencytext = """
 ## Cumulative Percentage Graph
 
-This uses exactly the same data as the Histogram example - see comments there.
+This uses exactly the same data as the Box Plot example - see comments there.
 
 This time it is fed into a `brycharts.CumulativeFrequencyData` object, and then displayed as a `brycharts.CumulativePercentageGraph`.
 """

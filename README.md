@@ -75,7 +75,7 @@ The parameters are:
 **`FrequencyData(data=None, rawdata=None, valueslabel="Frequency")`**  
 This is a subclass of `LabelledData` in which the values are frequencies.  The parameters are:
 
-**either**
+**either**  
 `data`: a dictionary in which the values are frequencies - eg `{"Cat":27, "Dog":45, "Rabbit":15}`  
 **or**  
 `rawdata`: a list of items to be counted - eg `["Cat", "Dog", "Cat", "Cat", "Rabbit", ...]`
@@ -127,7 +127,7 @@ A dictionary of dictionaries of labelled data points. Parameters:
 
 
 **`BoxPlotData(valueslabel, boxplotdata=None, rawdata=None)`**  
-Data needed for drawing a box plot.  Parameters:
+Data needed for drawing a box plot.  Parameters:  
 `valueslabel`: description of the data values, eg `"Height (cm)"`
 
 **either**  
@@ -136,7 +136,7 @@ Data needed for drawing a box plot.  Parameters:
 `rawdata`: list of data values eg `[173, 187, 153, 164, ...]`
 
 **`BoxPlotDataDict(valueslabel, boxplotdatadict=None, rawdatadict=None)`**  
-Dictionary where the values are the data needed for drawing a box plot.  Parameters:
+Dictionary where the values are the data needed for drawing a box plot.  Parameters:  
 `valueslabel`: description of the data values, eg `"Height (cm)"`
 
 **either**  
@@ -200,11 +200,11 @@ All the charts share some common parameters, as follows:
 
 `parent`: The element in the document into which the chart should be placed.  
 `data`: One of the data structures listed above, which will be used to draw the chart.  
-`title`: (optional) A title to appear above the chart  
-`fontsize`: Font size for labels, keys and tooltips.  
+`title`: (optional) A title to appear above the chart. Default is no title.  
+`fontsize`: (optional) Font size for labels, keys and tooltips. Default is 14px. 
 `width`: (optional) CSS width of the chart. Default is `"95%"`.  
 `height`: (optional) CSS height of the chart. Default is `"95%"`.  
-`objid`: (optional) HTML `id` for the chart.  
+`objid`: (optional) HTML `id` for the chart.  Default is no id.
 
 
 
