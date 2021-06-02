@@ -56,6 +56,15 @@ def regressioninfo(points):
     yintercept = (sy - gradient*sx)/n
     return pmcc, gradient, yintercept
 
+def convertifnumber(string):
+    try:
+        x = float(string)
+    except ValueError:
+        return string
+    else:
+        n = int(x)
+        return n if n == x else x
+
 if __name__=="__main__":
     points = [(164,6.5), (153,3), (163,4), (157,8), (161,5), (155,4), (168,4), (174,7), (167,6), (164,7), (159,3), (167,6)]
     pmcc, gradient, yintercept = regressioninfo(points)

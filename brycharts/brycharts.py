@@ -11,7 +11,7 @@
 # ANY WARRANTY. See the GNU General Public License for more details.          #
 
 from collections import Counter
-from math import sin, cos, pi, log10
+from math import sin, cos, pi, log10, exp
 #import brySVG.dragcanvas as SVG
 from . import dragcanvas as SVG
 from . import bryaxes
@@ -165,6 +165,8 @@ class GroupedFrequencyData(list):
             self.frequencyDensities.append(self.frequencies[i]/(self.boundaries[i+1]-self.boundaries[i]))
         self.maxFrequencyDensity = max(self.frequencyDensities)
         self.valuesLabel = valueslabel
+        #print("Means", mean(rawdata), self.mean())
+        #print("Variances", variance(rawdata), self.variance())
 
     def fromRawData(self, rawdata, boundaries):
         L = len(boundaries)
@@ -175,6 +177,18 @@ class GroupedFrequencyData(list):
                     frequencies[i] += 1
                     break
         return list(zip(boundaries, frequencies))
+
+    def mean(self):
+        self.midpoints = [(self[i][0] + self[i+1][0])/2 for i in range(len(self)-1)]
+        sumfx = sum(x*f for (x, f) in zip(self.midpoints, self.frequencies[:-1]))
+        sumf = sum(self.frequencies)
+        return sumfx/sumf
+
+    def variance(self):
+        m = self.mean()
+        sumfx2 = sum(x*x*f for (x, f) in zip(self.midpoints, self.frequencies[:-1]))
+        sumf = sum(self.frequencies)
+        return sumfx2/sumf - m*m
 
 class GroupedFrequencyDataDict(dict):
     def __init__(self, valueslabel, datadict=None, rawdatadict=None, boundaries=None, classwidth=None):
@@ -284,28 +298,36 @@ class PieChart(SVG.CanvasObject):
         for tooltip in self.tooltips: tooltip.hide()
 
 class BarChart(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colour="yellow", fontsize=14, width="95%", height="95%", objid=None):
+    def __init__(self, parent, data, title="", direction="vertical", colour="yellow", fontsize=14, width="95%", height="95%", objid=None):
         xaxis = bryaxes.Axis(0, 100*len(data), label=None, showScale=False,
                             showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
         yaxis = bryaxes.Axis(0, data.maxValue, data.valuesLabel)
+        if direction == "horizontal": xaxis, yaxis = yaxis, xaxis
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
-        self.attachObject(Bars(self, data, colour=colour))
+        self.attachObject(Bars(self, data, direction=direction, colour=colour))
         for i in range(len(data)):
-            label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (i*100+60, 0), 80, fontsize=fontsize)
+            if direction == "horizontal":
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (-10*self.xScaleFactor, i*100+60), 80, anchorposition=6, fontsize=fontsize)
+            else:
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (i*100+60, 0), 80, fontsize=fontsize)
             self.attachObject(label)
         self.fitContents()
 
 class StackedBarChart(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None):
+    def __init__(self, parent, data, title="", direction="vertical", colours=None, fontsize=14, width="95%", height="95%", objid=None):
         if not colours: colours = DEFAULT_COLOURS
         xaxis = bryaxes.Axis(0, 100*len(data.labels), label="", showScale=False,
                             showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
         yaxis = bryaxes.Axis(0, data.maxSum, data.valuesLabel)
+        if direction == "horizontal": xaxis, yaxis = yaxis, xaxis
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         for i, key in enumerate(data.keys()):
-            self.attachObject(Bars(self, data, "stacked", i, key, colours[i]))
+            self.attachObject(Bars(self, data, "stacked", i, key, direction, colours[i]))
         for i in range(len(data.labels)):
-            label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (i*100+60, 0), 80, fontsize=fontsize)
+            if direction == "horizontal":
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (-10*self.xScaleFactor, i*100+60), 80, anchorposition=6, fontsize=fontsize)
+            else:
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (i*100+60, 0), 80, fontsize=fontsize)
             self.attachObject(label)
         keywidth = 20*self.xScaleFactor
         keyheight = fontsize*2*self.yScaleFactor
@@ -319,16 +341,20 @@ class StackedBarChart(bryaxes.AxesCanvas):
         self.fitContents()
 
 class GroupedBarChart(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None):
+    def __init__(self, parent, data, title="", direction="vertical", colours=None, fontsize=14, width="95%", height="95%", objid=None):
         if not colours: colours = DEFAULT_COLOURS
         xaxis = bryaxes.Axis(0, 100*len(data.labels), label="", showScale=False,
                             showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
         yaxis = bryaxes.Axis(0, data.maxValue, data.valuesLabel)
+        if direction == "horizontal": xaxis, yaxis = yaxis, xaxis
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         for i, key in enumerate(data.keys()):
-            self.attachObject(Bars(self, data, "grouped", i, key, colours[i]))
+            self.attachObject(Bars(self, data, "grouped", i, key, direction, colours[i]))
         for i in range(len(data.labels)):
-            label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (i*100+60, 0), 80, fontsize=fontsize)
+            if direction == "horizontal":
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (-10*self.xScaleFactor, i*100+60), 80, anchorposition=6, fontsize=fontsize)
+            else:
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (i*100+60, 0), 80, fontsize=fontsize)
             self.attachObject(label)
         keywidth = 20*self.xScaleFactor
         keyheight = fontsize*2*self.yScaleFactor
@@ -397,11 +423,13 @@ class BoxPlotCanvas(bryaxes.AxesCanvas):
         self.fitContents()
 
 class Histogram(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colour="yellow", fontsize=14, width="95%", height="95%", objid=None):
+    def __init__(self, parent, data, title="", shownormalcurve=False, colour="yellow", fontsize=14, width="95%", height="95%", objid=None):
         xaxis = bryaxes.Axis(data.xMin, data.xMax, data.valuesLabel)
         yaxis = bryaxes.Axis(0, data.maxFrequencyDensity, "Frequency density")
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         self.attachObject(HistogramBars(data, colour))
+        if shownormalcurve:
+            self.attachObject(NormalCurve(data))
 
 class CumulativeFrequencyGraph(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None):
@@ -513,7 +541,8 @@ class AxesTooltip(bryaxes.AxesTextObject):
         self.canvas.container.removeObject(self)
 
 class Bar(SVG.RectangleObject):
-    def __init__(self, canvas, pointlist, key, value, colour):
+    def __init__(self, canvas, pointlist, key, value, direction="vertical", colour):
+        if direction == "horizontal": pointlist = [(y, x) for (x, y) in pointlist]
         super().__init__(pointlist, fillcolour=colour)
         self.canvas = canvas
         self.tooltiptext = f"{key}\n{value}" if key else f"{value}"
@@ -530,7 +559,7 @@ class Bar(SVG.RectangleObject):
         self.tooltip.hide()
 
 class Bars(SVG.GroupObject):
-    def __init__(self, canvas, data, graphtype=None, index=None, key=None, colour="yellow"):
+    def __init__(self, canvas, data, graphtype=None, index=None, key=None, direction="vertical", colour="yellow"):
         super().__init__()
         if graphtype == "stacked":
             barminvalues = [sums[index] for sums in data.sums.values()]
@@ -552,7 +581,7 @@ class Bars(SVG.GroupObject):
             [barstart, barend] = [i*100+offset, i*100+offset+barwidth]
             value = data.Values[label][index] if key else data.Values[i]
             if value > 0:
-                self.addObject(Bar(canvas, [(barstart, barmaxvalues[i]), (barend,barminvalues[i])], key, value, colour))
+                self.addObject(Bar(canvas, [(barstart, barmaxvalues[i]), (barend,barminvalues[i])], key, value, direction, colour))
 
 class DataPoint(bryaxes.AxesPoint):
     def __init__(self, canvas, label, coords, colour="red", objid=None):
@@ -640,6 +669,30 @@ class HistogramBars(SVG.GroupObject):
         for i in range(len(gfd)-1):
             self.addObject(HistogramBar(gfd, i, colour))
 
+class NormalCurve(SVG.PolylineObject):
+    def __init__(self, gfd):
+        m = gfd.mean()
+        v = gfd.variance()
+        s = v**0.5
+        k = sum(gfd.frequencies)/(s*(2*pi)**0.5)
+        x0 = gfd.xMin
+        dx = (gfd.xMax - x0)/200
+        points = [(x0+i*dx, k*exp(-0.5*(((x0+i*dx)-m)/s)**2)) for i in range(201)]
+        super().__init__(points, linewidth=2)
+        self.tooltiptext = f"µ = {m:.1f}\nσ² = {v:.1f}"
+        self.bind("mouseenter", self.showtooltip)
+        self.bind("touchstart", self.showtooltip)
+        self.bind("mouseleave", self.hidetooltip)
+
+    def showtooltip(self, event):
+        for tooltip in self.canvas.tooltips: tooltip.hide()
+        (x, y) = self.canvas.getSVGcoords(event)
+        self.tooltip = AxesTooltip(self.canvas, self.tooltiptext, (x, -y))
+
+    def hidetooltip(self, event):
+        self.tooltip.hide()
+
+
 class CumulativeFrequencyLine(SVG.PolylineObject):
     def __init__(self, key, cfd, colour):
         super().__init__(cfd, linecolour=colour, linewidth=2)
@@ -677,5 +730,15 @@ class CumulativePercentageLine(SVG.PolylineObject):
 
     def hidetooltip(self, event):
         self.tooltip.hide()
+
+class DataTable(list):
+    def __init__(self, csvfile=None, datasets="columns", headers=True):
+        if csvfile:
+            with open(csvfile) as datafile:
+                lines = datafile.readlines()
+            data = [line.strip().split(",") for line in lines]
+            data = [[convertifnumber(item) for item in row] for row in data]
+        fieldnames = data[0]
+        super().__init__([{key:value for key, value in zip(fieldnames, data[i])} for i in range(1, len(data))])
 
 
