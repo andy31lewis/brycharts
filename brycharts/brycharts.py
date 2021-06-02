@@ -541,7 +541,7 @@ class AxesTooltip(bryaxes.AxesTextObject):
         self.canvas.container.removeObject(self)
 
 class Bar(SVG.RectangleObject):
-    def __init__(self, canvas, pointlist, key, value, direction="vertical", colour):
+    def __init__(self, canvas, pointlist, key, value, direction="vertical", colour="yellow"):
         if direction == "horizontal": pointlist = [(y, x) for (x, y) in pointlist]
         super().__init__(pointlist, fillcolour=colour)
         self.canvas = canvas
