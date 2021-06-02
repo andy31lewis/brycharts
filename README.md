@@ -46,11 +46,13 @@ In order to display our data graphically, we first need to gather it into a suit
 | StackedBarChart           | LabelledDataDict, FrequencyDataDict                          |
 | GroupedBarChart           | LabelledDataDict, FrequencyDataDict                          |
 | ScatterGraph              | PairedData, LabelledPairedData                               |
-| LineGraph                 | PairedData, PairedDataDict, *TimeSeriesData*, *TimeSeriesDataDict* |
+| LineGraph                 | PairedData, PairedDataDict, *TimeSeriesData^*, *TimeSeriesDataDict*^ |
 | BoxPlotCanvas             | BoxPlotData, BoxPlotDataDict                                 |
 | Histogram                 | GroupedFrequencyData                                         |
 | CumulativeFrequencyGraph  | CumulativeFrequencyData, CumulativeFequencyDataDict          |
 | CumulativePercentageGraph | CumulativeFrequencyData, CumulativeFequencyDataDict          |
+
+^ These classes are not yet implemented.
 
 ## Data Structures
 
