@@ -30,10 +30,10 @@ And here is the result:
 
 ![Hello world pie chart](./HelloWorld.png)
 
-This example can be seen at http://mathsanswers.org.uk/oddments/brycharts/helloworld.html
+This example can be seen at https://andy31lewis.github.io/brycharts/helloworld.html
 
 For many more examples, with details of how they were created, see  
-http://mathsanswers.org.uk/oddments/brycharts/demo.html
+https://andy31lewis.github.io/brycharts/demo.html
 
 ## Charts and Data Structures
 
