@@ -456,6 +456,11 @@ class CircleObject(svg.circle, ObjectMixin):
         self.attrs["r"]=hypot(x2-x1, y2-y1)
 
 class SectorObject(svg.path, ObjectMixin):
+    ''' A sector of a circle. Parameters:
+    **Either** `centre` and `radius` of the circle, and two angles (measured clockwise from the top of the circle)
+     showing the start and finish of the sector.
+    **or** `pointlist`: a list of three points - the centre of the circle and two points on the circumference
+    (Note that if the two points are not the same distance from the centre, the shape will not be a true sector of a circle.)'''
     def __init__(self, centre=(0,0), radius=0, startangle=0, endangle=0, pointlist=None, linecolour="black", linewidth=1, fillcolour="yellow", objid=None):
         self.centre = Point(centre)
         self.radius = radius
@@ -473,11 +478,11 @@ class SectorObject(svg.path, ObjectMixin):
         if objid: self.id = objid
 
     def _update(self):
-        while len(self.pointList) < 3: self.pointList.append(self.pointList[-1])
-        [(x1, y1), (x2, y2), (x3, y3)] = self.pointList
-        r = self.radius
+        [(x0, y0), (x1, y1)] = self.pointList[:2]
+        (x2, y2) = self.pointList[-1]
+        r = hypot(x1-x0, y1-y0)
         largeArcFlag = 1 if (self.endangle - self.startangle) % 360 > 180 else 0
-        self.attrs["d"] = f"M {x1} {y1} L {x2} {y2} A {r} {r} 0 {largeArcFlag} 1 {x3} {y3} Z"
+        self.attrs["d"] = f"M {x0} {y0} L {x1} {y1} A {r} {r} 0 {largeArcFlag} 1 {x2} {y2} Z"
 
 class UseObject(svg.use, ObjectMixin):
     '''Wrapper for SVG `use` element.  Parameters:
@@ -1316,7 +1321,7 @@ class CanvasObject(svg.svg):
 
     @mouseMode.setter
     def mouseMode(self, mm):
-        if mm in [MouseMode.PAN, MouseMode.DRAG, MouseMode.EDIT, MouseMode.TRANSFORM]:
+        if mm in [MouseMode.DRAG, MouseMode.EDIT, MouseMode.TRANSFORM]:
             self.createHitTargets()
         currentmm = getattr(self, "_mouseMode", None)
         if currentmm == mm: return
@@ -1482,8 +1487,7 @@ class CanvasObject(svg.svg):
         if self.selectedObject and not self.selectedObject.fixed:
             self.mouseOwner = self.selectedObject
             self <= self.mouseOwner
-            hittarget = getattr(self.mouseOwner, "hitTarget", None)
-            if hittarget: self <= hittarget
+            if (hittarget := getattr(self.mouseOwner, "hitTarget", None)): self <= hittarget
             self.startx = event.targetTouches[0].clientX if "touch" in event.type else event.clientX
             self.starty = event.targetTouches[0].clientY if "touch" in event.type else event.clientY
 
@@ -1576,8 +1580,7 @@ class CanvasObject(svg.svg):
                 if not hasattr(obj, "pointList"): continue
                 if hasattr(obj, "reference"): continue
                 if obj.style.visibility == "hidden": continue
-                objgroup = getattr(obj, "group", None)
-                if objgroup and hasattr(objgroup, "pointList") : continue
+                if objgroup := getattr(obj, "group", None) and hasattr(objgroup, "pointList") : continue
                 bbox = obj.getBBox()
                 L1, R1, T1, B1 = bbox.x, bbox.x+bbox.width, bbox.y, bbox.y+bbox.height
                 if L1-R > snapd or R1-L < -snapd or T1-B > snapd or B1-T < -snapd: continue
@@ -1649,6 +1652,9 @@ class Point(object):
 
     def __sub__(self, other):
         return Point([xi-yi for (xi, yi) in zip(self.coords, other.coords)])
+
+    def __rsub__(self, other):
+        return Point([xi-yi for (xi, yi) in zip(other.coords, self.coords)])
 
     def __neg__(self):
         return Point([-xi for xi in self.coords])
@@ -1733,5 +1739,5 @@ def roundsf(x, sf=3):
     return round(x, sf-int(floor(log10(abs(x))))-1)
 
 shapetypes = {"line":LineObject, "polygon":PolygonObject, "polyline":PolylineObject,
-"rectangle":RectangleObject, "ellipse":EllipseObject, "circle":CircleObject,
+"rectangle":RectangleObject, "ellipse":EllipseObject, "circle":CircleObject, "sector":SectorObject,
 "bezier":BezierObject, "closedbezier":ClosedBezierObject, "smoothbezier":SmoothBezierObject, "smoothclosedbezier":SmoothClosedBezierObject}
