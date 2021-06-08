@@ -128,7 +128,7 @@ salaryvscostsdata = {salaryvscostsdata}''')
         self.codebox.attach(
 """title = "Salaries and Living Costs for towns/cities in the UK"
 lpd = brycharts.LabelledPairedData("Average Salary Index", "Total Cost of Living Index", salaryvscostsdata)
-brycharts.ScatterGraph(self.chartbox, lpd, showRegressionLine=True)""")
+brycharts.ScatterGraph(self.chartbox, lpd, showregressionline=True)""")
 
     def update(self):
         if self.viewed: return
