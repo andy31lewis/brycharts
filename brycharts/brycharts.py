@@ -368,7 +368,7 @@ class GroupedBarChart(bryaxes.AxesCanvas):
         self.fitContents()
 
 class ScatterGraph(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colour="red", showRegressionLine=False, fontsize=14, width="95%", height="95%", objid=None):
+    def __init__(self, parent, data, title="", colour="red", showregressionline=False, fontsize=14, width="95%", height="95%", objid=None):
         xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=True)
         yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=True)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
@@ -377,10 +377,37 @@ class ScatterGraph(bryaxes.AxesCanvas):
         else:
             self.dataPoints = [DataPoint(self, None, coords, colour) for coords in data]
         self.attachObjects(self.dataPoints)
-        if showRegressionLine:
+        if showregressionline:
             self.regressionLine = RegressionLine(data)
             self.attachObject(self.regressionLine)
-        #self.mouseMode = SVG.MouseMode.PAN
+
+class MultiScatterGraph(bryaxes.AxesCanvas):
+    def __init__(self, parent, data, title="", colours=None, showregressionlines=False, fontsize=14, width="95%", height="95%", objid=None):
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=True)
+        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=True)
+        super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
+        if not colours: colours = DEFAULT_COLOURS
+        if showregressionlines==True: showregressionlines = [True]*len(data)
+        if showregressionlines==False: showregressionlines = [False]*len(data)
+        for i, (key, dataset) in enumerate(data.items()):
+            if isinstance(dataset, LabelledPairedData):
+                self.dataPoints = [DataPoint(self, label, coords, colours[i]) for (label, coords) in dataset.items()]
+            else:
+                self.dataPoints = [DataPoint(self, None, coords, colours[i]) for coords in dataset]
+            self.attachObjects(self.dataPoints)
+            if showregressionlines[i]:
+                self.regressionLine = RegressionLine(dataset, colours[i])
+                self.attachObject(self.regressionLine)
+        keywidth = 20*self.xScaleFactor
+        keyheight = fontsize*2*self.yScaleFactor
+        keypos = SVG.Point((self.xAxis.max + keywidth, self.yAxis.min+keyheight))
+        for i, key in enumerate(data.keys()):
+            self.attachObject(SVG.GroupObject([
+                SVG.EllipseObject(pointlist=[keypos, keypos+(keywidth,keyheight/2)], fillcolour=colours[i]),
+                bryaxes.AxesTextObject(self, key, keypos+(keywidth*1.25,0), anchorposition=7, fontsize=fontsize)
+                ]))
+            keypos += (0, keyheight)
+        self.fitContents()
 
 class LineGraph(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None):
@@ -601,14 +628,16 @@ class DataPoint(bryaxes.AxesPoint):
         self.tooltip.hide()
 
 class RegressionLine(SVG.LineObject):
-    def __init__(self, data):
+    def __init__(self, data, colour="black"):
         points = data.values() if isinstance(data, LabelledPairedData) else data
         pmcc, gradient, yintercept = regressioninfo(points)
         sign = "" if yintercept < 0 else "+"
-        self.tooltiptext = f"y = {gradient:.2f}x{sign}{yintercept:.2f}\n(PMCC = {pmcc:.2f})"
+        n1 = 2-int(log10(gradient))
+        n2 = 2-int(log10(yintercept))
+        self.tooltiptext = f"y = {gradient:.{n1}f}x{sign}{yintercept:.{n2}f}\n(PMCC = {pmcc:.2f})"
         x1, x2 = data.xMin, data.xMax
         y1, y2 = gradient*x1 + yintercept, gradient*x2 + yintercept
-        super().__init__([(x1,y1), (x2,y2)], linewidth=2)
+        super().__init__([(x1,y1), (x2,y2)], linecolour=colour, linewidth=2)
 
         self.bind("mouseenter", self.showtooltip)
         self.bind("touchstart", self.showtooltip)
@@ -740,5 +769,3 @@ class DataTable(list):
             data = [[convertifnumber(item) for item in row] for row in data]
         fieldnames = data[0]
         super().__init__([{key:value for key, value in zip(fieldnames, data[i])} for i in range(1, len(data))])
-
-

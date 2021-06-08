@@ -46,6 +46,7 @@ In order to display our data graphically, we first need to gather it into a suit
 | StackedBarChart           | LabelledDataDict, FrequencyDataDict                          |
 | GroupedBarChart           | LabelledDataDict, FrequencyDataDict                          |
 | ScatterGraph              | PairedData, LabelledPairedData                               |
+| MultiScatterGraph         | PairedDataDict, LabelledPairedDataDict                       |
 | LineGraph                 | PairedData, PairedDataDict, *TimeSeriesData^*, *TimeSeriesDataDict*^ |
 | BoxPlotCanvas             | BoxPlotData, BoxPlotDataDict                                 |
 | Histogram                 | GroupedFrequencyData                                         |
@@ -247,12 +248,25 @@ Parameters:
 
 
 
-**`ScatterGraph(parent, data, title="", colour="red", showRegressionLine=False, fontsize=14, width="95%", height="95%", objid=None)`**
+**`ScatterGraph(parent, data, title="", colour="red", showregressionline=False, fontsize=14, width="95%", height="95%", objid=None)`**
 
 Parameters:  
 `data`: Either a `PairedData` or a `LabelledPairedData` object.  
-`colours`: A CSS colour for the points on the graph.  The default is `"red"`.  
+`colour`: A CSS colour for the points on the graph.  The default is `"red"`.  
 `showregressionline`: If `True`, the (linear) regression line of y on x will be shown.  Its equation is shown in its tooltip, along with the Product moment Correlation Coefficient (PMCC) for the data.
+
+(For details of the other parameters, see **Common Parameters** above.)
+
+
+
+**`MultiScatterGraph(parent, data, title="", colours=None, showregressionlines=False, fontsize=14, width="95%", height="95%", objid=None)`**
+
+More than one scattergraph on the same axes, each with its own regression line (if desired).  
+Parameters:  
+`data`: Either a `PairedDataDict` or a `LabelledPairedDataDict` object.  
+`colours`: A list of CSS colours to be used for lines on the graph.  If not given, a set of default colours will be used. 
+`showregressionlines`: Either `True`, `False` or a list of `True/False` values, one for each scattergraph.  
+If the value is `True` for a given scattergraph,  the (linear) regression line of y on x will be shown.  Its equation is shown in its tooltip, along with the Product moment Correlation Coefficient (PMCC) for the data.
 
 (For details of the other parameters, see **Common Parameters** above.)
 

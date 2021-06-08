@@ -134,7 +134,7 @@ brycharts.ScatterGraph(self.chartbox, lpd, showRegressionLine=True)""")
         if self.viewed: return
         lpd = brycharts.LabelledPairedData("Average Salary Index", "Total Cost of Living Index", salaryvscostsdata)
         title = "Salaries and Living Costs for towns/cities in the UK"
-        brycharts.ScatterGraph(self.chartbox, lpd, title, showRegressionLine=True)
+        brycharts.ScatterGraph(self.chartbox, lpd, title, showregressionline=True)
         self.viewed = True
 
 class BoxPlotPage(DemoPage):
