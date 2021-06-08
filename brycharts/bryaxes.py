@@ -62,19 +62,8 @@ class Axis(object):
         self.min = rounddown(Min, self.scaleInterval)
         self.max = roundup(Max, self.scaleInterval)
 
-    def calculateDefaultTicks(self, MinDivs):
-        interval = self.max - self.min
-        self.scaleInterval, ScaleBase = roundscale(interval, MinDivs)
-
-        if ScaleBase == 1 or ScaleBase == 10:
-            self.majorTickInterval = self.scaleInterval/2.0
-            self.minorTickInterval = self.scaleInterval/10.0
-        elif ScaleBase == 5:
-            self.majorTickInterval = self.scaleInterval
-            self.minorTickInterval = self.scaleInterval/5.0
-        elif ScaleBase == 2:
-            self.majorTickInterval = self.scaleInterval/2.0
-            self.minorTickInterval = self.scaleInterval/10.0
+    def calculateDefaultTicks(self, mindivs):
+        self.scaleInterval, self.majorTickInterval, self.minorTickInterval = getscaleintervals(self.min, self.max, mindivs)
 
 class Ticks(SVG.GroupObject):
     def __init__(self, direction, ticktype, axis, omit=[]):

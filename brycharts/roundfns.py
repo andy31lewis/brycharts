@@ -40,6 +40,26 @@ def roundscale (interval, mindivs):
     Y = 1 if xx<=2 else 2 if xx<=5 else 5 if xx<=10 else 10
     return Y * L, Y
 
+def getscaleintervals (xmin, xmax, mindivs):
+    interval = xmax - xmin
+    if interval == 0: return 1, 1, 1
+    if mindivs < 2: return interval, interval, interval
+    X = interval/(mindivs - 1)
+    L = 10**math.floor(math.log10(X))
+    xx = X / L
+    Y = 1 if xx<=2 else 2 if xx<=5 else 5 if xx<=10 else 10
+    scaleinterval = Y * L
+    if Y  in {1, 10}:
+        majorinterval = scaleinterval/2.0
+        minorinterval = scaleinterval/10.0
+    elif Y == 5:
+        majorinterval = scaleinterval
+        minorinterval = scaleinterval/5.0
+    elif Y == 2:
+        majorinterval = scaleinterval/2.0
+        minorinterval = scaleinterval/10.0
+    return scaleinterval, majorinterval, minorinterval
+
 def roundsf2 (X, n):
     if X == 0:
         return 0
