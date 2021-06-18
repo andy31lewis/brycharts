@@ -47,13 +47,11 @@ In order to display our data graphically, we first need to gather it into a suit
 | GroupedBarChart           | LabelledDataDict, FrequencyDataDict                          |
 | ScatterGraph              | PairedData, LabelledPairedData                               |
 | MultiScatterGraph         | PairedDataDict, LabelledPairedDataDict                       |
-| LineGraph                 | PairedData, PairedDataDict, *TimeSeriesData^*, *TimeSeriesDataDict*^ |
+| LineGraph                 | PairedData, PairedDataDict, TimeSeriesData, TimeSeriesDataDict |
 | BoxPlotCanvas             | BoxPlotData, BoxPlotDataDict                                 |
 | Histogram                 | GroupedFrequencyData                                         |
 | CumulativeFrequencyGraph  | CumulativeFrequencyData, CumulativeFequencyDataDict          |
 | CumulativePercentageGraph | CumulativeFrequencyData, CumulativeFequencyDataDict          |
-
-^ These classes are not yet implemented.
 
 ## Data Structures
 
@@ -112,6 +110,20 @@ A dictionary of lists of data points. Parameters:
 `xlabel`: description of the x-values eg `"Height (cm)"`  
 `ylabel`:description of the y-values eg `"Weight (kg)"`  
 `datadict`:  eg `{"Boys": [(167, 74), (174, 82), ...], "Girls": [(157, 62), (143, 57), ...] }`
+
+
+
+**`TimeSeriesData(xlabel, ylabel, data)`**  
+A list of data points (x, y) in which the x-coords are Python `datetime.datetime` objects.  Parameters:  
+`xlabel`: description of the x-values eg `"Date of reading"`  
+`ylabel`:description of the y-values eg `"Height of water (cm)"`  
+`data`: a list eg `[(datetime.datetime(2021,6,15), 74), (datetime.datetime(2021,6,16), 82),  ...]`
+
+**`TimeSeriesDataDict(xlabel, ylabel, data)`**  
+A dictionary of lists of data points (x, y) in which the x-coords are Python `datetime.datetime` objects. Parameters:  
+`xlabel`: description of the x-values eg `"Date of reading"`  
+`ylabel`:description of the y-values eg `"Height of water (cm)"`   
+`datadict`:  a dictionary in which the values are lists like the example for `TimeSeriesData`
 
 
 

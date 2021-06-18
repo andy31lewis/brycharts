@@ -3,13 +3,9 @@
 
 # Copyright (c) 1997-2021 Andy Lewis                                          #
 # --------------------------------------------------------------------------- #
-# These programs are free software; you can redistribute it and/or modify it  #
-# under the terms of the GNU General Public License version 2 as published by #
-# the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,     #
-# MA 02111-1307 USA                                                           #
-# This program is distributed in the hope that it will be useful, but WITHOUT #
-# ANY WARRANTY. See the GNU General Public License for more details.          #
+# For details, see the LICENSE file in this repository                        #
 
+import time
 from collections import Counter
 from math import sin, cos, pi, log10, exp
 #import brySVG.dragcanvas as SVG
@@ -69,42 +65,71 @@ class FrequencyDataDict(LabelledDataDict):
         super().__init__(fdd, valueslabel)
 
 class PairedData(list):
-    def __init__(self, xlabel, yLabel, data):
+    def __init__(self, xlabel, ylabel, data):
         super().__init__(data)
         self.xLabel = xlabel
-        self.yLabel = yLabel
+        self.yLabel = ylabel
         self.xValues = [item[0] for item in data]
         self.yValues = [item[1] for item in data]
         self.xMin, self.xMax = min(self.xValues), max(self.xValues)
         self.yMin, self.yMax = min(self.yValues), max(self.yValues)
 
+class TimeSeriesData(PairedData):
+    def __init__(self, xlabel, ylabel, data):
+        if bryaxes.TimeCoord.startfloat == 0:
+            x0 = min(x for (x, y) in data)
+            x1 = max(x for (x, y) in data)
+            bryaxes.TimeCoord.startfloat = 2*x0.timestamp() - x1.timestamp()
+            hours = round((x1.timestamp()-x0.timestamp())/3600)
+            bryaxes.TimeCoord.scalefloat = hours if hours > 0 else 1
+            bryaxes.TimeCoord.defaultformat = "%H:%M:%S" if hours < 5 else "%H:%M" if hours < 24 else "%d/%m %H:%M" if hours < 840 else "%d/%m/%y"
+        data = [(bryaxes.TimeCoord(x), y) for (x, y) in data]
+        super().__init__(xlabel, ylabel, data)
+
 class PairedDataDict(dict):
-    def __init__(self, xlabel, yLabel, datadict):
-        pdd = {key:PairedData(xlabel, yLabel, pd) for (key, pd) in datadict.items()}
+    def __init__(self, xlabel, ylabel, datadict):
+        pdd = {key:PairedData(xlabel, ylabel, pd) for (key, pd) in datadict.items()}
         super().__init__(pdd)
         self.xLabel = xlabel
-        self.yLabel = yLabel
+        self.yLabel = ylabel
+        self.xMin = min(pd.xMin for pd in pdd.values())
+        self.xMax = max(pd.xMax for pd in pdd.values())
+        self.yMin = min(pd.yMin for pd in pdd.values())
+        self.yMax = max(pd.yMax for pd in pdd.values())
+
+class TimeSeriesDataDict(dict):
+    def __init__(self, xlabel, ylabel, datadict):
+        x0 = min(x for data in datadict.values() for (x, y) in data)
+        x1 = max(x for data in datadict.values() for (x, y) in data)
+        bryaxes.TimeCoord.startfloat = 2*x0.timestamp() - x1.timestamp()
+        hours = round((x1.timestamp()-x0.timestamp())/3600)
+        bryaxes.TimeCoord.scalefloat = hours if hours > 0 else 1
+        bryaxes.TimeCoord.defaultformat = "%H:%M:%S" if hours < 5 else "%H:%M" if hours < 24 else "%d/%m %H:%M" if hours < 840 else "%d/%m/%y"
+        pdd = {key:TimeSeriesData(xlabel, ylabel, pd) for (key, pd) in datadict.items()}
+        super().__init__(pdd)
+        self.xLabel = xlabel
+        self.yLabel = ylabel
         self.xMin = min(pd.xMin for pd in pdd.values())
         self.xMax = max(pd.xMax for pd in pdd.values())
         self.yMin = min(pd.yMin for pd in pdd.values())
         self.yMax = max(pd.yMax for pd in pdd.values())
 
 class LabelledPairedData(dict):
-    def __init__(self, xlabel, yLabel, data):
+    def __init__(self, xlabel, ylabel, data):
         super().__init__(data)
         self.xLabel = xlabel
-        self.yLabel = yLabel
+        self.yLabel = ylabel
         self.xValues = [item[0] for item in data.values()]
         self.yValues = [item[1] for item in data.values()]
         self.xMin, self.xMax = min(self.xValues), max(self.xValues)
         self.yMin, self.yMax = min(self.yValues), max(self.yValues)
 
 class LabelledPairedDataDict(dict):
-    def __init__(self, xlabel, yLabel, datadict):
-        lpdd = {key:LabelledPairedData(xlabel, yLabel, lpd) for (key, lpd) in datadict.items()}
+    def __init__(self, xlabel, ylabel, datadict):
+        lpdd = {key:LabelledPairedData(xlabel, ylabel, lpd) for (key, lpd) in datadict.items()}
         super().__init__(lpdd)
         self.xLabel = xlabel
-        self.yLabel = yLabel
+        self.yLabel = ylabel
         self.xMin = min(lpd.xMin for lpd in lpdd.values())
         self.xMax = max(lpd.xMax for lpd in lpdd.values())
         self.yMin = min(lpd.yMin for lpd in lpdd.values())
@@ -411,21 +436,29 @@ class MultiScatterGraph(bryaxes.AxesCanvas):
 
 class LineGraph(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None):
-        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=True)
-        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=True)
+        tt = time.time()
+        xaxistype = "time" if isinstance(data, (TimeSeriesData, TimeSeriesDataDict)) else "float"
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=False, axisType=xaxistype)
+        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=False)
+        #print("axes", time.time()-tt)
+        tt = time.time()
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
+        #print("canvas", time.time()-tt)
+        tt = time.time()
         if not colours: colours = DEFAULT_COLOURS
         if isinstance(data, PairedData):
-            self.attachObject(SVG.PolylineObject(data, linecolour=colours[0]))
+            coordslist = [(float(x), y) for (x, y) in data]
+            self.attachObject(SVG.PolylineObject(coordslist, linecolour=colours[0]))
         else:
             keywidth = 20*self.xScaleFactor
             keyheight = fontsize*2*self.yScaleFactor
-            keypos = SVG.Point((self.xAxis.max + keywidth, self.yAxis.max))
+            keypos = SVG.Point((float(self.xAxis.max) + keywidth, self.yAxis.max))
             keydata = []
             for i, (key, pd) in enumerate(data.items()):
-                self.attachObject(SVG.PolylineObject(pd, linecolour=colours[i], linewidth=2))
+                coordslist = [(float(x), y) for (x, y) in pd]
+                self.attachObject(SVG.PolylineObject(coordslist, linecolour=colours[i], linewidth=2))
                 self.attachObjects([DataPoint(self, key, coords, colours[i]) for coords in pd])
-                keydata.append((pd.yValues[-1], key, colours[i]))
+                keydata.append((coordslist[-1][1], key, colours[i]))
             keydata.sort(key = lambda x: -x[0])
             for (_, key, colour) in keydata:
                 self.attachObject(SVG.GroupObject([
@@ -434,6 +467,8 @@ class LineGraph(bryaxes.AxesCanvas):
                     ]))
                 keypos += (0, -keyheight)
             self.fitContents()
+        #print("lines", time.time()-tt)
+        tt = time.time()
 
 class BoxPlotCanvas(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", colour="yellow", fontsize=14, width="95%", height="95%", objid=None):
@@ -612,9 +647,10 @@ class Bars(SVG.GroupObject):
 
 class DataPoint(bryaxes.AxesPoint):
     def __init__(self, canvas, label, coords, colour="red", objid=None):
-        super().__init__(canvas, coords, colour)
+        (x, y) = coords
+        super().__init__(canvas, (float(x), y), colour)
         self.canvas = canvas
-        self.coords = coords
+        self.coords = (float(x), y)
         self.tooltiptext = f"{label}\n{coords}" if label else f"{coords}"
         self.bind("mouseenter", self.showtooltip)
         self.bind("touchstart", self.showtooltip)

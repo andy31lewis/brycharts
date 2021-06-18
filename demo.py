@@ -1,8 +1,13 @@
 from browser import document, html, window
+import time
+tt = time.time()
 import json
 import brywidgets as ws
 import brycharts
 from content import *
+#import datetime
+#print("imports", time.time()-tt)
+tt = time.time()
 
 class ListDict(dict):
     def __getitem__(self, key):
@@ -110,8 +115,14 @@ brycharts.LineGraph(self.chartbox, paireddatadict, title)""")
     def update(self):
         if self.viewed: return
         title = "Change in rental costs over a 10 year period"
+        tt = time.time()
         paireddatadict = brycharts.PairedDataDict("Year", "Monthly rent (€)", rentdata)
+        #paireddatadict = brycharts.TimeSeriesDataDict("Year", "Monthly rent (€)", rentdata)
+        #print("data", time.time()-tt)
+        tt = time.time()
         brycharts.LineGraph(self.chartbox, paireddatadict, title)
+        #print("graph", time.time()-tt)
+        tt = time.time()
         self.viewed = True
 
 class ScattergraphPage(DemoPage):
@@ -254,6 +265,7 @@ def gethistoricaldata():
     with open("rent-costs.json") as f:
         data = json.load(f)
     headings = data[0]
+    #headings = [datetime.datetime(2021,6,8,8,15,0) + datetime.timedelta(minutes=6*i) for i in range(12)]
     rentdata = {}
     for row in data[1:]:
         rentdata[row[0]] = [(year, value) for (year, value) in zip(headings[1:], row[1:]) if value != "NaN"]
@@ -290,3 +302,4 @@ notebook = ws.Notebook(pages)
 document <= notebook
 pageheight = f"calc(100vh - {notebook.tabrow.offsetHeight}px)"
 for page in pages: page.style.height = pageheight
+
