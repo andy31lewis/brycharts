@@ -49,7 +49,7 @@ class AxesPolyline(SVG.PolylineObject):
         super().__init__(pointlist, linecolour, linewidth, fillcolour, objid)
         newobj = SVG.PolylineObject(pointlist, linecolour, linewidth, fillcolour, objid)
         newobj.style.strokeWidth = 6 if canvas.mouseDetected else 10
-        newobj.style.opacity = 0.5
+        newobj.style.opacity = 0
         for event in SVG.MOUSEEVENTS: newobj.bind(event, canvas._onHitTargetMouseEvent)
         for event in SVG.TOUCHEVENTS: newobj.bind(event, canvas._onHitTargetTouchEvent)
         newobj.reference = self
