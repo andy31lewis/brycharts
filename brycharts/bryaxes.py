@@ -129,6 +129,7 @@ class AxesCanvas(SVG.CanvasObject):
         self.lineWidthScaling = False
         self.title = title
         self.tooltips = []
+        self.bestFit = None
         self.bind("touchstart", self.clearTooltips)
         #print("set up axes", time.time()-tt)
         tt = time.time()
@@ -154,9 +155,14 @@ class AxesCanvas(SVG.CanvasObject):
                 obj.rescale(self)
 
     def fitContents(self):
-        super().fitContents()
-        self.rescaleObjects()
-        super().fitContents()
+        if self.bestFit:
+            self.setViewBox(self.bestFit)
+            return self.bestFit
+        else:
+            super().fitContents()
+            self.rescaleObjects()
+            viewwindow = super().fitContents()
+            return viewwindow
 
     def clearTooltips(self, event):
         if event.target != self: return

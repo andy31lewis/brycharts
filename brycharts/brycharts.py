@@ -15,6 +15,8 @@ from .roundfns import *
 from .statfns import *
 
 DEFAULT_COLOURS = [f"hsl({a%360+22.5*(a//1080)},{(3-a//810)*100//3}%, 50%)" for a in range(0,2160,135)]
+BARUNIT = 10
+
 
 # Classes which provide the data structures needed as inputs for the graphs
 
@@ -165,9 +167,8 @@ class GroupedFrequencyData(list):
             if f != 0: data.append((2*b - data[-2][0], 0))
         else:
             datamin, datamax = min(rawdata), max(rawdata)
-            datarange = datamax - datamin
             if not boundaries:
-                if not classwidth: classwidth, _ = roundscale(datarange, 5)
+                if not classwidth: classwidth, _, _ = getscaleintervals(datamin, datamax, 5)
                 minboundary = rounddown(datamin, classwidth)
                 maxboundary = roundup(datamax, classwidth)
                 boundaries =  [minboundary]
@@ -324,7 +325,7 @@ class PieChart(SVG.CanvasObject):
 
 class BarChart(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", direction="vertical", colour="yellow", fontsize=14, width="95%", height="95%", objid=None):
-        xaxis = bryaxes.Axis(0, 100*len(data), label=None, showScale=False,
+        xaxis = bryaxes.Axis(0, BARUNIT*len(data), label=None, showScale=False,
                             showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
         yaxis = bryaxes.Axis(0, data.maxValue, data.valuesLabel)
         if direction == "horizontal": xaxis, yaxis = yaxis, xaxis
@@ -332,16 +333,16 @@ class BarChart(bryaxes.AxesCanvas):
         self.attachObject(Bars(self, data, direction=direction, colour=colour))
         for i in range(len(data)):
             if direction == "horizontal":
-                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (-10*self.xScaleFactor, i*100+60), 80, anchorposition=6, fontsize=fontsize)
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (-10*self.xScaleFactor, (i+0.6)*BARUNIT), 80, anchorposition=6, fontsize=fontsize)
             else:
-                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (i*100+60, 0), 80, fontsize=fontsize)
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], ((i+0.6)*BARUNIT, 0), 0.8*BARUNIT, fontsize=fontsize)
             self.attachObject(label)
         self.fitContents()
 
 class StackedBarChart(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", direction="vertical", colours=None, fontsize=14, width="95%", height="95%", objid=None):
         if not colours: colours = DEFAULT_COLOURS
-        xaxis = bryaxes.Axis(0, 100*len(data.labels), label="", showScale=False,
+        xaxis = bryaxes.Axis(0, BARUNIT*len(data.labels), label="", showScale=False,
                             showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
         yaxis = bryaxes.Axis(0, data.maxSum, data.valuesLabel)
         if direction == "horizontal": xaxis, yaxis = yaxis, xaxis
@@ -350,9 +351,9 @@ class StackedBarChart(bryaxes.AxesCanvas):
             self.attachObject(Bars(self, data, "stacked", i, key, direction, colours[i]))
         for i in range(len(data.labels)):
             if direction == "horizontal":
-                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (-10*self.xScaleFactor, i*100+60), 80, anchorposition=6, fontsize=fontsize)
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (-10*self.xScaleFactor, (i+0.6)*BARUNIT), 80, anchorposition=6, fontsize=fontsize)
             else:
-                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (i*100+60, 0), 80, fontsize=fontsize)
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], ((i+0.6)*BARUNIT, 0), 0.8*BARUNIT, fontsize=fontsize)
             self.attachObject(label)
         keywidth = 20*self.xScaleFactor
         keyheight = fontsize*2*self.yScaleFactor
@@ -363,12 +364,12 @@ class StackedBarChart(bryaxes.AxesCanvas):
                 bryaxes.AxesTextObject(self, key, keypos+(keywidth*1.25,0), anchorposition=7, fontsize=fontsize)
                 ]))
             keypos += (0, keyheight)
-        self.fitContents()
+        self.bestFit = self.fitContents()
 
 class GroupedBarChart(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", direction="vertical", colours=None, fontsize=14, width="95%", height="95%", objid=None):
         if not colours: colours = DEFAULT_COLOURS
-        xaxis = bryaxes.Axis(0, 100*len(data.labels), label="", showScale=False,
+        xaxis = bryaxes.Axis(0, BARUNIT*len(data.labels), label="", showScale=False,
                             showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
         yaxis = bryaxes.Axis(0, data.maxValue, data.valuesLabel)
         if direction == "horizontal": xaxis, yaxis = yaxis, xaxis
@@ -377,9 +378,9 @@ class GroupedBarChart(bryaxes.AxesCanvas):
             self.attachObject(Bars(self, data, "grouped", i, key, direction, colours[i]))
         for i in range(len(data.labels)):
             if direction == "horizontal":
-                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (-10*self.xScaleFactor, i*100+60), 80, anchorposition=6, fontsize=fontsize)
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (-10*self.xScaleFactor, (i+0.6)*BARUNIT), 80, anchorposition=6, fontsize=fontsize)
             else:
-                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], (i*100+60, 0), 80, fontsize=fontsize)
+                label = bryaxes.AxesWrappingTextObject(self, data.labels[i], ((i+0.6)*BARUNIT, 0), 0.8*BARUNIT, fontsize=fontsize)
             self.attachObject(label)
         keywidth = 20*self.xScaleFactor
         keyheight = fontsize*2*self.yScaleFactor
@@ -390,7 +391,7 @@ class GroupedBarChart(bryaxes.AxesCanvas):
                 bryaxes.AxesTextObject(self, key, keypos+(keywidth*1.25,0), anchorposition=7, fontsize=fontsize)
                 ]))
             keypos += (0, keyheight)
-        self.fitContents()
+        self.bestFit = self.fitContents()
 
 class ScatterGraph(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", colour="red", showregressionline=False, fontsize=14, width="95%", height="95%", objid=None):
@@ -432,7 +433,7 @@ class MultiScatterGraph(bryaxes.AxesCanvas):
                 bryaxes.AxesTextObject(self, key, keypos+(keywidth*1.25,0), anchorposition=7, fontsize=fontsize)
                 ]))
             keypos += (0, keyheight)
-        self.fitContents()
+        self.bestFit = self.fitContents()
 
 class LineGraph(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None):
@@ -466,7 +467,7 @@ class LineGraph(bryaxes.AxesCanvas):
                     bryaxes.AxesTextObject(self, key, keypos+(keywidth*1.25,0), anchorposition=4, fontsize=fontsize)
                     ]))
                 keypos += (0, -keyheight)
-            self.fitContents()
+            self.bestFit = self.fitContents()
         #print("lines", time.time()-tt)
         tt = time.time()
 
@@ -482,7 +483,7 @@ class BoxPlotCanvas(bryaxes.AxesCanvas):
             self.attachObject(BoxPlot(boxplotdata, label, yheight, colour))
             if label: self.attachObject(bryaxes.AxesWrappingTextObject(self, label, (xaxis.min-10*self.xScaleFactor, yheight), 100, 6, fontsize))
             yheight += 50
-        self.fitContents()
+        self.bestFit = self.fitContents()
 
 class Histogram(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", shownormalcurve=False, colour="yellow", fontsize=14, width="95%", height="95%", objid=None):
@@ -512,7 +513,7 @@ class CumulativeFrequencyGraph(bryaxes.AxesCanvas):
                     bryaxes.AxesTextObject(self, key, keypos+(keywidth*1.25,0), anchorposition=4, fontsize=fontsize)
                     ]))
                 keypos += (0, -keyheight)
-            self.fitContents()
+            self.bestFit = self.fitContents()
 
 class CumulativePercentageGraph(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None):
@@ -533,7 +534,7 @@ class CumulativePercentageGraph(bryaxes.AxesCanvas):
                     bryaxes.AxesTextObject(self, key, keypos+(keywidth*1.25,0), anchorposition=4, fontsize=fontsize)
                     ]))
                 keypos += (0, -keyheight)
-            self.fitContents()
+            self.bestFit = self.fitContents()
 
 # Utility classes not needed by end users
 
@@ -626,21 +627,21 @@ class Bars(SVG.GroupObject):
         if graphtype == "stacked":
             barminvalues = [sums[index] for sums in data.sums.values()]
             barmaxvalues = [sums[index+1] for sums in data.sums.values()]
-            barwidth = 80
-            offset = 20
+            barwidth = 0.8*BARUNIT
+            offset = 0.2*BARUNIT
         elif graphtype == "grouped":
             barminvalues = [0]*len(data.labels)
             barmaxvalues = [values[index] for values in data.Values.values()]
-            barwidth = 80/len(data)
-            offset = 20+barwidth*index
+            barwidth = 0.8*BARUNIT/len(data)
+            offset = 0.2*BARUNIT+barwidth*index
         else:
             barminvalues = [0]*len(data)
             barmaxvalues = data.Values
-            barwidth = 80
-            offset = 20
+            barwidth = 0.8*BARUNIT
+            offset = 0.2*BARUNIT
 
         for i, label in enumerate(data.labels):
-            [barstart, barend] = [i*100+offset, i*100+offset+barwidth]
+            [barstart, barend] = [i*BARUNIT+offset, i*BARUNIT+offset+barwidth]
             value = data.Values[label][index] if key else data.Values[i]
             if value > 0:
                 self.addObject(Bar(canvas, [(barstart, barmaxvalues[i]), (barend,barminvalues[i])], key, value, direction, colour))
