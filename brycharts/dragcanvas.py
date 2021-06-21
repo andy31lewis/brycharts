@@ -13,7 +13,7 @@ from math import sin, cos, atan2, pi, hypot, floor, log10
 svgbase = svg.svg(width=0, height=0)
 basepoint = svgbase.createSVGPoint()
 lasttaptime = 0
-MOUSEEVENTS = ["mousedown", "mousemove", "mouseup", "click"]
+MOUSEEVENTS = ["mousedown", "mousemove", "mouseup", "mouseenter", "mouseleave", "click"]
 TOUCHEVENTS = ["touchstart", "touchmove", "touchend"]
 
 class Enum(list):
@@ -44,8 +44,15 @@ class ObjectMixin(object):
                     newobject.objectList.append(newobj)
         elif isinstance(self, ObjectMixin):
             if isinstance(self, ImageObject) and not self.imageloaded: raise RuntimeError("ImageObject cannot be cloned until fully loaded")
-            #print("Cloning a", self.__class__)
-            newobject = self.__class__()
+            if self.__class__ in shapetypes.values():
+                newobject = self.__class__()
+                #print("Cloning a", self.__class__)
+            else:
+                for cls in self.__bases__:
+                    if cls in shapetypes.values():
+                        newobject = cls()
+                        #print("Cloning a", cls)
+                        break
             for attrname in ["XY", "pointList", "pointsetList", "angle", "fixed", "rotatestring", "centre", "_width", "_height",
                              "currentAspectRatio", "imageWidth", "imageHeight", "imageAspectRatio", "imageloaded",
                              "startangle", "endangle", "radius"]:
@@ -863,17 +870,17 @@ class GroupObject(svg.g, ObjectMixin):
             self.addObject(obj)
         if objid: self.id = objid
 
-    def addObject(self, svgobject):
+    def addObject(self, svgobject, fixed=False):
         canvas = self.canvas
-        if canvas is not None: canvas.addObject(svgobject)
+        if canvas is not None: canvas.addObject(svgobject, fixed)
         self <= svgobject
         svgobject.group = self
         self.objectList.append(svgobject)
 
-    def addObjects(self, objectlist):
+    def addObjects(self, objectlist, fixed=False):
         canvas = self.canvas
         for obj in objectlist:
-            if canvas is not None: canvas.addObject(obj)
+            if canvas is not None: canvas.addObject(obj, fixed)
             self <= obj
             obj.group = self
             self.objectList.append(obj)
@@ -1373,6 +1380,9 @@ class CanvasObject(svg.svg):
             newobj.reference = obj
             obj.hitTarget = newobj
             self.hittargets.append(newobj)
+            #if getattr(obj, "group", None):
+            #    obj.group.addObject(newobj)
+            #else:
             self.addObject(newobj)
 
     def _onWheel(self, event):
