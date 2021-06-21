@@ -44,6 +44,19 @@ class AxesPoint(svg.circle, ScaledObjectMixin):
     def _update(self):
         pass
 
+class AxesPolyline(SVG.PolylineObject):
+    def __init__(self, canvas, pointlist=[(0,0)], linecolour="black", linewidth=1, fillcolour="none", objid=None):
+        super().__init__(pointlist, linecolour, linewidth, fillcolour, objid)
+        newobj = SVG.PolylineObject(pointlist, linecolour, linewidth, fillcolour, objid)
+        newobj.style.strokeWidth = 6 if canvas.mouseDetected else 10
+        newobj.style.opacity = 0.5
+        for event in SVG.MOUSEEVENTS: newobj.bind(event, canvas._onHitTargetMouseEvent)
+        for event in SVG.TOUCHEVENTS: newobj.bind(event, canvas._onHitTargetTouchEvent)
+        newobj.reference = self
+        self.hitTarget = newobj
+        canvas.hittargets.append(newobj)
+        canvas.attachObject(newobj)
+
 class Axis(object):
     def __init__(self, Min, Max, label, fontsize=12,
                     majorTickInterval=None, minorTickInterval=None, scaleInterval=None,
@@ -131,6 +144,7 @@ class AxesCanvas(SVG.CanvasObject):
         self.tooltips = []
         self.bestFit = None
         self.bind("touchstart", self.clearTooltips)
+        self.bind("mousemove", self.onMouseMove)
         #print("set up axes", time.time()-tt)
         tt = time.time()
 
@@ -138,8 +152,8 @@ class AxesCanvas(SVG.CanvasObject):
         #print("draw axes", time.time()-tt)
         tt = time.time()
 
-    def attachObject(self, svgobject):
-        self.container.addObject(svgobject)
+    def attachObject(self, svgobject, fixed=False):
+        self.container.addObject(svgobject, fixed)
 
     def attachObjects(self, objectlist):
         for obj in objectlist:
@@ -163,6 +177,13 @@ class AxesCanvas(SVG.CanvasObject):
             self.rescaleObjects()
             viewwindow = super().fitContents()
             return viewwindow
+
+    def onMouseMove(self, event):
+        if not self.mouseDetected:
+            self.mouseDetected = True
+            for obj in self.objectDict.values():
+                if hasattr(obj, "reference"):
+                    obj.style.strokeWidth = 6
 
     def clearTooltips(self, event):
         if event.target != self: return
@@ -231,7 +252,7 @@ class AxesCanvas(SVG.CanvasObject):
                 omit = [yAxis.position] if yAxis.showAxis else []
                 self.xAxisObjects.addObjects(GridLines("x", "major", xAxis, ymin, ymax, omit))
 
-            self.attachObject(self.xAxisObjects)
+            self.attachObject(self.xAxisObjects, fixed=True)
         #print("x-axis grid", time.time()-tt)
         tt = time.time()
 
@@ -261,7 +282,7 @@ class AxesCanvas(SVG.CanvasObject):
                 omit = [xAxis.position] if xAxis.showAxis else []
                 self.yAxisObjects.addObjects(GridLines("y", "major", yAxis, xmin, xmax, omit))
 
-            self.attachObject(self.yAxisObjects)
+            self.attachObject(self.yAxisObjects, fixed=True)
         if self.title:
             self.attachObject(AxesTextObject(self, self.title, ((xmin+xmax)/2, ymax+1.5*yAxis.fontsize*self.yScaleFactor), 8, yAxis.fontsize*1.25))
         self.fitContents()

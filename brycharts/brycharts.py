@@ -398,14 +398,14 @@ class ScatterGraph(bryaxes.AxesCanvas):
         xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=True)
         yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=True)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
+        if showregressionline:
+            self.regressionLine = RegressionLine(self, data)
+            self.attachObject(self.regressionLine)
         if isinstance(data, LabelledPairedData):
             self.dataPoints = [DataPoint(self, label, coords, colour) for (label, coords) in data.items()]
         else:
             self.dataPoints = [DataPoint(self, None, coords, colour) for coords in data]
         self.attachObjects(self.dataPoints)
-        if showregressionline:
-            self.regressionLine = RegressionLine(data)
-            self.attachObject(self.regressionLine)
 
 class MultiScatterGraph(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", colours=None, showregressionlines=False, fontsize=14, width="95%", height="95%", objid=None):
@@ -416,14 +416,14 @@ class MultiScatterGraph(bryaxes.AxesCanvas):
         if showregressionlines==True: showregressionlines = [True]*len(data)
         if showregressionlines==False: showregressionlines = [False]*len(data)
         for i, (key, dataset) in enumerate(data.items()):
+            if showregressionlines[i]:
+                self.regressionLine = RegressionLine(self, dataset, colours[i])
+                self.attachObject(self.regressionLine)
             if isinstance(dataset, LabelledPairedData):
                 self.dataPoints = [DataPoint(self, label, coords, colours[i]) for (label, coords) in dataset.items()]
             else:
                 self.dataPoints = [DataPoint(self, None, coords, colours[i]) for coords in dataset]
             self.attachObjects(self.dataPoints)
-            if showregressionlines[i]:
-                self.regressionLine = RegressionLine(dataset, colours[i])
-                self.attachObject(self.regressionLine)
         keywidth = 20*self.xScaleFactor
         keyheight = fontsize*2*self.yScaleFactor
         keypos = SVG.Point((self.xAxis.max + keywidth, self.yAxis.min+keyheight))
@@ -492,7 +492,7 @@ class Histogram(bryaxes.AxesCanvas):
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         self.attachObject(HistogramBars(data, colour))
         if shownormalcurve:
-            self.attachObject(NormalCurve(data))
+            self.attachObject(NormalCurve(self, data))
 
 class CumulativeFrequencyGraph(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None):
@@ -502,7 +502,7 @@ class CumulativeFrequencyGraph(bryaxes.AxesCanvas):
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         if not colours: colours = DEFAULT_COLOURS
         for i, (key, cfd) in enumerate(data.items()):
-            self.attachObject(CumulativeFrequencyLine(key, cfd, colours[i]))
+            self.attachObject(CumulativeFrequencyLine(self, key, cfd, colours[i]))
         if len(data) > 1:
             keywidth = 20*self.xScaleFactor
             keyheight = fontsize*2*self.yScaleFactor
@@ -523,7 +523,7 @@ class CumulativePercentageGraph(bryaxes.AxesCanvas):
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         if not colours: colours = DEFAULT_COLOURS
         for i, (key, cfd) in enumerate(data.items()):
-            self.attachObject(CumulativePercentageLine(key, cfd, colours[i]))
+            self.attachObject(CumulativePercentageLine(self, key, cfd, colours[i]))
         if len(data) > 1:
             keywidth = 20*self.xScaleFactor
             keyheight = fontsize*2*self.yScaleFactor
@@ -664,8 +664,8 @@ class DataPoint(bryaxes.AxesPoint):
     def hidetooltip(self, event):
         self.tooltip.hide()
 
-class RegressionLine(SVG.LineObject):
-    def __init__(self, data, colour="black"):
+class RegressionLine(bryaxes.AxesPolyline):
+    def __init__(self, canvas, data, colour="black"):
         points = data.values() if isinstance(data, LabelledPairedData) else data
         pmcc, gradient, yintercept = regressioninfo(points)
         sign = "" if yintercept < 0 else "+"
@@ -674,7 +674,7 @@ class RegressionLine(SVG.LineObject):
         self.tooltiptext = f"y = {gradient:.{n1}f}x{sign}{yintercept:.{n2}f}\n(PMCC = {pmcc:.2f})"
         x1, x2 = data.xMin, data.xMax
         y1, y2 = gradient*x1 + yintercept, gradient*x2 + yintercept
-        super().__init__([(x1,y1), (x2,y2)], linecolour=colour, linewidth=2)
+        super().__init__(canvas, [(x1,y1), (x2,y2)], linecolour=colour, linewidth=2)
 
         self.bind("mouseenter", self.showtooltip)
         self.bind("touchstart", self.showtooltip)
@@ -735,8 +735,8 @@ class HistogramBars(SVG.GroupObject):
         for i in range(len(gfd)-1):
             self.addObject(HistogramBar(gfd, i, colour))
 
-class NormalCurve(SVG.PolylineObject):
-    def __init__(self, gfd):
+class NormalCurve(bryaxes.AxesPolyline):
+    def __init__(self, canvas, gfd):
         m = gfd.mean()
         v = gfd.variance()
         s = v**0.5
@@ -744,7 +744,7 @@ class NormalCurve(SVG.PolylineObject):
         x0 = gfd.xMin
         dx = (gfd.xMax - x0)/200
         points = [(x0+i*dx, k*exp(-0.5*(((x0+i*dx)-m)/s)**2)) for i in range(201)]
-        super().__init__(points, linewidth=2)
+        super().__init__(canvas, points, linewidth=2)
         self.tooltiptext = f"µ = {m:.1f}\nσ² = {v:.1f}"
         self.bind("mouseenter", self.showtooltip)
         self.bind("touchstart", self.showtooltip)
@@ -759,9 +759,9 @@ class NormalCurve(SVG.PolylineObject):
         self.tooltip.hide()
 
 
-class CumulativeFrequencyLine(SVG.PolylineObject):
-    def __init__(self, key, cfd, colour):
-        super().__init__(cfd, linecolour=colour, linewidth=2)
+class CumulativeFrequencyLine(bryaxes.AxesPolyline):
+    def __init__(self, canvas, key, cfd, colour):
+        super().__init__(canvas, cfd, linecolour=colour, linewidth=2)
         self.key = key
         self.bind("mouseenter", self.showtooltip)
         self.bind("touchstart", self.showtooltip)
@@ -777,11 +777,11 @@ class CumulativeFrequencyLine(SVG.PolylineObject):
     def hidetooltip(self, event):
         self.tooltip.hide()
 
-class CumulativePercentageLine(SVG.PolylineObject):
-    def __init__(self, key, cfd, colour):
+class CumulativePercentageLine(bryaxes.AxesPolyline):
+    def __init__(self, canvas, key, cfd, colour):
         total = cfd.totalFrequency
         points = [(x, 100*y/total) for (x, y) in cfd]
-        super().__init__(points, linecolour=colour, linewidth=2)
+        super().__init__(canvas, points, linecolour=colour, linewidth=2)
         self.key = key
         self.bind("mouseenter", self.showtooltip)
         self.bind("touchstart", self.showtooltip)
