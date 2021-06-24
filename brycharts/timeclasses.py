@@ -87,14 +87,14 @@ def gettimescaleintervals(tc1, tc2, mindivs=5):
         unitindex -= 1
 
     ladderlist = [None, None, [1,2,7,14,28,91,364], [1,2,3,4,6,12], [1,2,5,10,15,30], [1,2,5,10,15,30]]
-    subdivisors = [None, None, {1:(2,6), 2:(2,6), 7:(7,14), 14:(2,14), 28:(2,4), 91:(1,13), 364:(1,13)},
-            {1:(2,6), 2:(2,6), 3:(3,6), 4:(4,8), 6:(6,12), 12:(3,12)},
-            {1:(2,6), 2:(2,6), 5:(1,5), 10:(2,10), 15:(3,15), 30:(3,6)},
-            {1:(2,6), 2:(2,6), 5:(1,5), 10:(2,10), 15:(3,15), 30:(3,6)}]
+    subdivisors = [None, None, {1:(2,3), 2:(2,3), 7:(1,7), 14:(2,7), 28:(2,2), 91:(1,13), 364:(1,13)},
+            {1:(2,3), 2:(2,3), 3:(3,2), 4:(4,2), 6:(1,6), 12:(3,4)},
+            {1:(2,3), 2:(2,3), 5:(1,5), 10:(2,5), 15:(3,5), 30:(3,2)},
+            {1:(2,3), 2:(2,3), 5:(1,5), 10:(2,5), 15:(3,5), 30:(3,2)}]
     scaleinterval = roundladder(interval, ladderlist[unitindex])
-    (major, minor) = subdivisors[unitindex][scaleinterval]
+    (majordivisor, minordivisor) = subdivisors[unitindex][scaleinterval]
 
-    return TimeInterval(scaleinterval, unitindex), TimeInterval(scaleinterval/major, unitindex), TimeInterval(scaleinterval/minor, unitindex)
+    return TimeInterval(scaleinterval, unitindex), majordivisor, minordivisor
 
 def roundtimedown(tc, scaleinterval):
     i = scaleinterval.unitIndex

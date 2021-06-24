@@ -25,12 +25,14 @@ class AxesTextObject(SVG.TextObject, ScaledObjectMixin):
         super().__init__(string, anchorpoint, anchorposition, fontsize)
         self.anchorPoint = anchorpoint
         self.rescale(canvas)
+        canvas.scaledObjects.append(self)
 
 class AxesWrappingTextObject(SVG.WrappingTextObject, ScaledObjectMixin):
     def __init__(self, canvas, string="", anchorpoint=(0,0), width=80, anchorposition=2, fontsize=12):
         super().__init__(canvas, string, anchorpoint, width/canvas.xScaleFactor, anchorposition, fontsize)
         self.anchorPoint = anchorpoint
         self.rescale(canvas)
+        canvas.scaledObjects.append(self)
 
 class AxesPoint(svg.circle, ScaledObjectMixin):
     def __init__(self, canvas, XY=(0,0), colour="black", objid=None):
@@ -40,6 +42,7 @@ class AxesPoint(svg.circle, ScaledObjectMixin):
         self.anchorPoint = self.XY = SVG.Point(XY)
         self.rescale(canvas)
         if objid: self.id = objid
+        canvas.scaledObjects.append(self)
 
     def _update(self):
         pass
@@ -47,6 +50,7 @@ class AxesPoint(svg.circle, ScaledObjectMixin):
 class AxesPolyline(SVG.PolylineObject):
     def __init__(self, canvas, pointlist=[(0,0)], linecolour="black", linewidth=1, fillcolour="none", objid=None):
         super().__init__(pointlist, linecolour, linewidth, fillcolour, objid)
+        #self.style.vectorEffect = "non-scaling-stroke"
         newobj = SVG.PolylineObject(pointlist, linecolour, linewidth, fillcolour, objid)
         newobj.style.strokeWidth = 6 if canvas.mouseDetected else 10
         newobj.style.opacity = 0
@@ -57,9 +61,20 @@ class AxesPolyline(SVG.PolylineObject):
         canvas.hittargets.append(newobj)
         canvas.attachObject(newobj)
 
+class AxesLine(SVG.LineObject):
+    def __init__(self, pointlist=[(0,0), (0,0)], style="solid", linecolour="black", linewidth=1, fillcolour="none", objid=None):
+        super().__init__(pointlist, style, linecolour, linewidth, fillcolour, objid)
+        self.style.vectorEffect = "non-scaling-stroke"
+
+class AxesGroup(svg.g):
+    def __init__(self, objlist=[], objid=None):
+        svg.g.__init__(self)
+        for obj in objlist: self.attach(obj)
+        if objid: self.id = objid
+
 class Axis(object):
     def __init__(self, Min, Max, label, fontsize=12,
-                    majorTickInterval=None, minorTickInterval=None, scaleInterval=None,
+                    scaleInterval=None, majorDivisor=None, minorDivisor=None,
                     showScale=True, showMajorTicks=True, showMinorTicks=True, showMajorGrid=True, showMinorGrid=True,
                     showArrow=False, showAxis=True, axisType="float"):
         self.min = Min
@@ -74,59 +89,69 @@ class Axis(object):
 
     def calculateDefaultTicks(self, mindivs):
         if self.axisType == "time":
-            self.scaleInterval, self.majorTickInterval, self.minorTickInterval = gettimescaleintervals(self.min, self.max, mindivs)
+            self.scaleInterval, self.majorDivisor, self.minorDivisor = gettimescaleintervals(self.min, self.max, mindivs)
         else:
-            self.scaleInterval, self.majorTickInterval, self.minorTickInterval = getscaleintervals(self.min, self.max, mindivs)
+            self.scaleInterval, self.majorDivisor, self.minorDivisor = getscaleintervals(self.min, self.max, mindivs)
         #print(self.scaleInterval, self.majorTickInterval, self.minorTickInterval)
 
-class Ticks(SVG.GroupObject):
-    def __init__(self, direction, ticktype, axis, omit=[]):
-        gap = axis.majorTickInterval if ticktype == "major" else axis.minorTickInterval
+class BasicAxis(AxesGroup):
+    def __init__(self, canvas, axis):
+        super().__init__()
+        axismin, axismax = float(axis.min), float(axis.max)
+        if axis.direction == "x":
+            self.attach([AxesLine([(axismin, axis.position), (axismax, axis.position)]),
+                         AxesTextObject(canvas, axis.label, (axismax, axis.position-3*axis.tickLength), 3, fontsize=axis.fontsize)])
+            if axis.showArrow:
+                self.attach([AxesLine([(axismax, axis.position), (axismax-axis.arrowLength, axis.position-axis.tickLength)]),
+                             AxesLine([(axismax, axis.position), (axismax-axis.arrowLength, axis.position+axis.tickLength)])])
+        else:
+            self.attach([AxesLine([(axis.position, axismin), (axis.position, axismax)]),
+                         AxesTextObject(canvas, axis.label, (axis.position, axismax), 7, fontsize=axis.fontsize)])
+            if axis.showArrow:
+                self.attach([AxesLine([(axis.position, axismax), (axis.position-axis.tickLength, axismax-axis.arrowLength)]),
+                             AxesLine([(axis.position, axismax), (axis.position+axis.tickLength, axismax-axis.arrowLength)])])
+
+class Ticks(AxesGroup):
+    def __init__(self, axis, ticktype):
+        values = axis.majorTickValues if ticktype == "major" else axis.minorTickValues
         ticklength = axis.tickLength if ticktype == "major" else axis.tickLength/2
-        ticks = []
-        v = axis.min
-        while v <= axis.max:
-            v1 = float(v)
-            if v1 not in omit:
-                if direction == "x":
-                    ticks.append(SVG.LineObject([(v1, axis.position), (v1,axis.position-ticklength)]))
-                else:
-                    ticks.append(SVG.LineObject([(axis.position, v1), (axis.position-ticklength, v1)]))
-            v += gap
-        super().__init__(ticks)
+        tickend = axis.position-ticklength
+        super().__init__()
+        for v in values:
+            if axis.direction == "x":
+                self.attach(AxesLine([(v, axis.position), (v, tickend)]))
+            else:
+                self.attach(AxesLine([(axis.position, v), (tickend, v)]))
+        axis.axisObjects.attach(self)
 
-class GridLines(SVG.GroupObject):
-    def __init__(self, direction, gridtype, axis, linemin, linemax, omit=[]):
-        gap = axis.majorTickInterval if gridtype == "major" else axis.minorTickInterval
+class GridLines(AxesGroup):
+    def __init__(self, axis, gridtype):
+        values = axis.majorTickValues if gridtype == "major" else axis.minorTickValues
+        linemin, linemax = axis.gridMin, axis.gridMax
         linestyle = "faintdash1" if gridtype == "major" else "faintdash2"
-        gridlines = []
-        v = axis.min
-        while v <= axis.max:
-            v1 = float(v)
-            if v1 not in omit:
-                if direction == "x":
-                    gridlines.append(SVG.LineObject([(v1, linemin), (v1, linemax)], linestyle))
-                else:
-                    gridlines.append(SVG.LineObject([(linemin, v1), (linemax, v1)], linestyle))
-            v += gap
-        super().__init__(gridlines)
+        super().__init__()
+        for v in values:
+            if axis.direction == "x":
+                self.attach(AxesLine([(v, linemin), (v, linemax)], linestyle))
+            else:
+                self.attach(AxesLine([(linemin, v), (linemax, v)], linestyle))
+        axis.axisObjects.attach(self)
 
-class ScaleValues(SVG.GroupObject):
-    def __init__(self, canvas, direction, axis, axispos, ticklength, omit=[]):
-        scalevalues = []
+class ScaleValues(AxesGroup):
+    def __init__(self, canvas, axis):
+        super().__init__()
         v = axis.min
         while v <= axis.max:
-            #r = round(v, 6)
             v1 = float(v)
-            if v1 not in omit:
+            if v1 != axis.omitScale:
                 n = int(1-log10(axis.scaleInterval))
                 scalestring=str(v) if axis.axisType=="time" else str(int(v)) if int(v) == v else f"{v:.{n}f}"
-                if direction == "x":
-                    scalevalues.append(AxesTextObject(canvas, scalestring, (v1, axispos-ticklength), 2, fontsize=12))
+                if axis.direction == "x":
+                    self.attach(AxesTextObject(canvas, scalestring, (v1, axis.position-axis.tickLength), 2, fontsize=12))
                 else:
-                    scalevalues.append(AxesTextObject(canvas, scalestring, (axispos-ticklength, v1), 6, fontsize=12))
+                    self.attach(AxesTextObject(canvas, scalestring, (axis.position-axis.tickLength, v1), 6, fontsize=12))
             v += axis.scaleInterval
-        super().__init__(scalevalues)
+        axis.axisObjects.attach(self)
 
 class AxesCanvas(SVG.CanvasObject):
     def __init__(self, parent, width, height, xAxis=None, yAxis=None, title=None, objid=None):
@@ -141,9 +166,10 @@ class AxesCanvas(SVG.CanvasObject):
         self.mouseMode = SVG.MouseMode.PAN
         self.lineWidthScaling = False
         self.title = title
-        self.tooltips = []
+        self.tooltip = None
         self.bestFit = None
-        self.bind("touchstart", self.clearTooltips)
+        self.scaledObjects = []
+        self.bind("touchstart", self.clearTooltip)
         self.bind("mousemove", self.onMouseMove)
         #print("set up axes", time.time()-tt)
         tt = time.time()
@@ -153,20 +179,27 @@ class AxesCanvas(SVG.CanvasObject):
         tt = time.time()
 
     def attachObject(self, svgobject, fixed=False):
-        self.container.addObject(svgobject, fixed)
+        if isinstance(svgobject, (AxesGroup, AxesLine, ScaledObjectMixin)):
+            self.container.attach(svgobject)
+        else:
+            self.container.addObject(svgobject, fixed)
 
     def attachObjects(self, objectlist):
         for obj in objectlist:
             if isinstance(obj, (list, tuple)):
                 self.attachObjects(obj)
             else:
-                self.container.addObject(obj)
+                self.attachObject(obj)
+
+    def removeObject(self, svgobject):
+        self.container.removeChild(svgobject)
+        if isinstance(svgobject, ScaledObjectMixin):
+            self.scaledObjects.remove(svgobject)
 
     def rescaleObjects(self):
-        #print("Using bryaxes rescaleObjects")
-        for obj in self.objectDict.values():
-            if isinstance(obj, ScaledObjectMixin):
-                obj.rescale(self)
+        #print(self.scaledObjects)
+        for obj in self.scaledObjects:
+            obj.rescale(self)
 
     def fitContents(self):
         if self.bestFit:
@@ -185,9 +218,9 @@ class AxesCanvas(SVG.CanvasObject):
                 if hasattr(obj, "reference"):
                     obj.style.strokeWidth = 6
 
-    def clearTooltips(self, event):
+    def clearTooltip(self, event):
         if event.target != self: return
-        for tooltip in self.tooltips: tooltip.hide()
+        if self.tooltip: self.tooltip.hide()
 
     """
     def makeXScaleValue(self, x, y):
@@ -209,82 +242,56 @@ class AxesCanvas(SVG.CanvasObject):
     """
 
     def drawAxes(self, xAxis, yAxis):
-        #print("xAxis.min", xAxis.min, float(xAxis.min))
-        tt = time.time()
+        #tt = time.time()
         xmin, xmax, ymin, ymax = float(xAxis.min), float(xAxis.max), float(yAxis.min), float(yAxis.max)
         if xmax <= xmin or ymax <= ymin: return
         self.setViewBox([(xmin, -ymax), (xmax, -ymin)])
-        xAxis.tickLength = 10*self.yScaleFactor
-        yAxis.tickLength = 10*self.xScaleFactor
+        (xAxis.direction, yAxis.direction) = ("x", "y")
+        xAxis.tickLength = yAxis.arrowLength = 0.75*xAxis.fontsize*self.yScaleFactor
+        yAxis.tickLength = xAxis.arrowLength = 0.75*yAxis.fontsize*self.xScaleFactor
         xAxis.position = ymin if ymin > 0 else ymax if ymax < 0 else 0
         yAxis.position = xmin if xmin > 0 else xmax if xmax < 0 else 0
-        self.xAxis = xAxis
-        self.yAxis = yAxis
+        xAxis.omitScale = yAxis.position if yAxis.showAxis and ymin < xAxis.position else None
+        yAxis.omitScale = xAxis.position if xAxis.showAxis and xmin < yAxis.position else None
+        xAxis.gridMin, xAxis.gridMax = ymin, ymax
+        yAxis.gridMin, yAxis.gridMax = xmin, xmax
         self.container.clear()
 
-        if xAxis.showAxis:
-            self.xAxisObjects = SVG.GroupObject([
-                SVG.LineObject([(xmin, xAxis.position), (xmax, xAxis.position)]),
-                AxesTextObject(self, xAxis.label, (xmax, xAxis.position-xAxis.tickLength-1.5*xAxis.fontsize*self.yScaleFactor), 3, fontsize=xAxis.fontsize)
-                ])
-            if xAxis.showArrow:
-                self.xAxisObjects.addObjects([
-                    SVG.LineObject([(xmax, xAxis.position), (xmax-yAxis.tickLength, xAxis.position-xAxis.tickLength)]),
-                    SVG.LineObject([(xmax, xAxis.position), (xmax-yAxis.tickLength, xAxis.position+xAxis.tickLength)])
-                    ])
+        for axis in [xAxis, yAxis]:
+            if not axis.showAxis: continue
+            axis.basicAxis = BasicAxis(self, axis)
+            axis.axisObjects = AxesGroup(axis.basicAxis)
 
-            if xAxis.showMinorTicks and float(xAxis.minorTickInterval)/self.xScaleFactor>5:
-                self.xAxisObjects.addObjects(Ticks("x", "minor", xAxis))
-            if xAxis.showMajorTicks:
-                self.xAxisObjects.addObjects(Ticks("x", "major", xAxis))
+            axismin, axismax = float(axis.min), float(axis.max)
+            majortickinterval = float(axis.scaleInterval)/axis.majorDivisor
+            count = int(round((axismax - axismin)/majortickinterval))
+            axis.majorTickValues = [axismin + i*majortickinterval for i in range(count+1)]
+            if axis.showMinorTicks or axis.showMinorGrid:
+                minortickinterval = majortickinterval/axis.minorDivisor
+                count = count*axis.minorDivisor
+                axis.minorTickValues = [axismin + i*minortickinterval for i in range(count+1) if i%axis.minorDivisor != 0]
+
+            if axis.showMinorTicks and minortickinterval > 0.5*axis.arrowLength:
+                axis.minorTicks = Ticks(axis, "minor")
+            if axis.showMajorTicks:
+                axis.majorTicks = Ticks(axis, "major")
             #print("x-axis lines", time.time()-tt)
-            tt = time.time()
-            if xAxis.showScale:
-                omit = [yAxis.position] if yAxis.showAxis and ymin < xAxis.position else []
-                self.xAxisObjects.addObjects(ScaleValues(self, "x", xAxis, xAxis.position, xAxis.tickLength, omit))
+            #tt = time.time()
+            if axis.showScale:
+                axis.scaleValues = ScaleValues(self, axis)
             #print("x-axis scale", time.time()-tt)
-            tt = time.time()
+            #tt = time.time()
 
-            if xAxis.showMinorGrid and float(xAxis.minorTickInterval)/self.xScaleFactor>5:
-                omit = [yAxis.position] if yAxis.showAxis else []
-                self.xAxisObjects.addObjects(GridLines("x", "minor", xAxis, ymin, ymax, omit))
-            if xAxis.showMajorGrid:
-                omit = [yAxis.position] if yAxis.showAxis else []
-                self.xAxisObjects.addObjects(GridLines("x", "major", xAxis, ymin, ymax, omit))
+            if axis.showMinorGrid and minortickinterval > 0.5*axis.arrowLength:
+                axis.minorGrid = GridLines(axis, "minor")
+            if axis.showMajorGrid:
+                axis.majorGrid = GridLines(axis, "major")
 
-            self.attachObject(self.xAxisObjects, fixed=True)
-        #print("x-axis grid", time.time()-tt)
-        tt = time.time()
+            self.attachObject(axis.axisObjects)
+            #print("x-axis grid", time.time()-tt)
 
-        if yAxis.showAxis:
-            self.yAxisObjects = SVG.GroupObject([
-                SVG.LineObject([(yAxis.position, ymin), (yAxis.position, ymax)]),
-                AxesTextObject(self, yAxis.label, (yAxis.position, ymax), 7, fontsize=yAxis.fontsize)
-                ])
-            if yAxis.showArrow:
-                self.yAxisObjects.addObjects([
-                    SVG.LineObject([(yAxis.position, ymax), (yAxis.position-yAxis.tickLength, ymax-xAxis.tickLength)]),
-                    SVG.LineObject([(yAxis.position, ymax), (yAxis.position+yAxis.tickLength, ymax-xAxis.tickLength)])
-                    ])
-
-            if yAxis.showMinorTicks and yAxis.minorTickInterval/self.yScaleFactor>5:
-                self.yAxisObjects.addObjects(Ticks("y", "minor", yAxis))
-            if yAxis.showMajorTicks:
-                self.yAxisObjects.addObjects(Ticks("y", "major", yAxis))
-            if yAxis.showScale:
-                omit = [xAxis.position] if xAxis.showAxis and xmin < yAxis.position else []
-                self.yAxisObjects.addObjects(ScaleValues(self, "y", yAxis, yAxis.position, yAxis.tickLength, omit))
-
-            if yAxis.showMinorGrid and yAxis.minorTickInterval/self.yScaleFactor>5:
-                omit = [xAxis.position] if xAxis.showAxis else []
-                self.yAxisObjects.addObjects(GridLines("y", "minor", yAxis, xmin, xmax, omit))
-            if yAxis.showMajorGrid:
-                omit = [xAxis.position] if xAxis.showAxis else []
-                self.yAxisObjects.addObjects(GridLines("y", "major", yAxis, xmin, xmax, omit))
-
-            self.attachObject(self.yAxisObjects, fixed=True)
+        self.xAxis = xAxis
+        self.yAxis = yAxis
         if self.title:
             self.attachObject(AxesTextObject(self, self.title, ((xmin+xmax)/2, ymax+1.5*yAxis.fontsize*self.yScaleFactor), 8, yAxis.fontsize*1.25))
         self.fitContents()
-        #print("y-axis", time.time()-tt)
-        tt = time.time()

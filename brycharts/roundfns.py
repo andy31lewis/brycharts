@@ -36,12 +36,10 @@ def getscaleintervals (xmin, xmax, mindivs):
     Y = 1 if xx<=2 else 2 if xx<=5 else 5 if xx<=10 else 10
     scaleinterval = Y * L
     if Y  in {1, 2, 10}:
-        majorinterval = scaleinterval/2.0
-        minorinterval = scaleinterval/10.0
+        majordivisor, minordivisor = 2, 5
     elif Y == 5:
-        majorinterval = scaleinterval
-        minorinterval = scaleinterval/5.0
-    return scaleinterval, majorinterval, minorinterval
+        majordivisor, minordivisor = 1, 5
+    return scaleinterval, majordivisor, minordivisor
 
 def roundsf2 (X, n):
     if X == 0:
