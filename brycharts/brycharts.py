@@ -279,7 +279,7 @@ class PieChart(SVG.CanvasObject):
     def __init__(self, parent, data, title="", colours=None, usekey=True, fontsize=14, width="95%", height="95%", objid=None):
         super().__init__(width, height, objid=objid)
         parent <= self
-        self.tooltips = []
+        self.tooltip = None
         if not colours: colours = DEFAULT_COLOURS
         if not usekey:
             D = data.items()
@@ -296,7 +296,7 @@ class PieChart(SVG.CanvasObject):
         self.addObjects(self.sectors)
         self.fitContents()
         self.mouseMode = SVG.MouseMode.PAN
-        self.bind("touchstart", self.clearTooltips)
+        self.bind("touchstart", self.clearTooltip)
 
         if usekey:
             keysize = fontsize*1.25
@@ -319,9 +319,9 @@ class PieChart(SVG.CanvasObject):
         if title: self.addObject(SVG.TextObject(title, titlepos, anchorposition=8, fontsize=fontsize*1.25))
         self.fitContents()
 
-    def clearTooltips(self, event):
+    def clearTooltip(self, event):
         if event.target != self: return
-        for tooltip in self.tooltips: tooltip.hide()
+        if self.tooltip: self.tooltip.hide()
 
 class BarChart(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", direction="vertical", colour="yellow", fontsize=14, width="95%", height="95%", objid=None):
@@ -405,7 +405,7 @@ class ScatterGraph(bryaxes.AxesCanvas):
             self.dataPoints = [DataPoint(self, label, coords, colour) for (label, coords) in data.items()]
         else:
             self.dataPoints = [DataPoint(self, None, coords, colour) for coords in data]
-        self.attachObjects(self.dataPoints)
+        self.container.attach(self.dataPoints)
 
 class MultiScatterGraph(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", colours=None, showregressionlines=False, fontsize=14, width="95%", height="95%", objid=None):
@@ -423,7 +423,7 @@ class MultiScatterGraph(bryaxes.AxesCanvas):
                 self.dataPoints = [DataPoint(self, label, coords, colours[i]) for (label, coords) in dataset.items()]
             else:
                 self.dataPoints = [DataPoint(self, None, coords, colours[i]) for coords in dataset]
-            self.attachObjects(self.dataPoints)
+            self.container.attach(self.dataPoints)
         keywidth = 20*self.xScaleFactor
         keyheight = fontsize*2*self.yScaleFactor
         keypos = SVG.Point((self.xAxis.max + keywidth, self.yAxis.min+keyheight))
@@ -549,11 +549,11 @@ class PieChartSector(SVG.SectorObject):
         self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        for tooltip in self.canvas.tooltips: tooltip.hide()
-        self.tooltip = Tooltip(self.canvas, self.tooltiptext, self.centre)
+        if self.canvas.tooltip: self.canvas.tooltip.hide()
+        self.canvas.tooltip = Tooltip(self.canvas, self.tooltiptext, self.centre)
 
     def hidetooltip(self, event):
-        self.tooltip.hide()
+        self.canvas.tooltip.hide()
 
 class Tooltip(SVG.TextObject):
     def __init__(self, canvas, text, coords):
@@ -565,7 +565,6 @@ class Tooltip(SVG.TextObject):
         self.canvas.addObject(self)
         self.setBackground()
         self.canvas <= self
-        self.canvas.tooltips.append(self)
 
     def setBackground(self):
         bbox = self.getBBox()
@@ -578,6 +577,7 @@ class Tooltip(SVG.TextObject):
     def hide(self):
         self.canvas.deleteObject(self._background)
         self.canvas.deleteObject(self)
+        self.canvas.tooltip = None
 
 class AxesTooltip(bryaxes.AxesTextObject):
     def __init__(self, canvas, text, coords):
@@ -589,7 +589,6 @@ class AxesTooltip(bryaxes.AxesTextObject):
         self.canvas.attachObject(self)
         self.setBackground()
         self.canvas.container <= self
-        self.canvas.tooltips.append(self)
 
     def setBackground(self):
         bbox = self.getBBox()
@@ -600,8 +599,9 @@ class AxesTooltip(bryaxes.AxesTextObject):
         self._background.style.pointerEvents = "none"
 
     def hide(self):
-        self.canvas.container.removeObject(self._background)
-        self.canvas.container.removeObject(self)
+        self.canvas.removeObject(self._background)
+        self.canvas.removeObject(self)
+        self.canvas.tooltip = None
 
 class Bar(SVG.RectangleObject):
     def __init__(self, canvas, pointlist, key, value, direction="vertical", colour="yellow"):
@@ -615,11 +615,11 @@ class Bar(SVG.RectangleObject):
         self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        for tooltip in self.canvas.tooltips: tooltip.hide()
-        self.tooltip = AxesTooltip(self.canvas, self.tooltiptext, self.centre)
+        if self.canvas.tooltip: self.canvas.tooltip.hide()
+        self.canvas.tooltip = AxesTooltip(self.canvas, self.tooltiptext, self.centre)
 
     def hidetooltip(self, event):
-        self.tooltip.hide()
+        self.canvas.tooltip.hide()
 
 class Bars(SVG.GroupObject):
     def __init__(self, canvas, data, graphtype=None, index=None, key=None, direction="vertical", colour="yellow"):
@@ -658,11 +658,11 @@ class DataPoint(bryaxes.AxesPoint):
         self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        for tooltip in self.canvas.tooltips: tooltip.hide()
-        self.tooltip = AxesTooltip(self.canvas, self.tooltiptext, self.coords)
+        if self.canvas.tooltip: self.canvas.tooltip.hide()
+        self.canvas.tooltip = AxesTooltip(self.canvas, self.tooltiptext, self.coords)
 
     def hidetooltip(self, event):
-        self.tooltip.hide()
+        self.canvas.tooltip.hide()
 
 class RegressionLine(bryaxes.AxesPolyline):
     def __init__(self, canvas, data, colour="black"):
@@ -681,12 +681,12 @@ class RegressionLine(bryaxes.AxesPolyline):
         self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        for tooltip in self.canvas.tooltips: tooltip.hide()
+        if self.canvas.tooltip: self.canvas.tooltip.hide()
         (x, y) = self.canvas.getSVGcoords(event)
-        self.tooltip = AxesTooltip(self.canvas, self.tooltiptext, (x, -y))
+        self.canvas.tooltip = AxesTooltip(self.canvas, self.tooltiptext, (x, -y))
 
     def hidetooltip(self, event):
-        self.tooltip.hide()
+        self.canvas.tooltip.hide()
 
 class BoxPlot(SVG.GroupObject):
     def __init__(self, boxplotinfo, label, yheight, colour="yellow"):
@@ -706,11 +706,11 @@ class BoxPlot(SVG.GroupObject):
         self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        for tooltip in self.canvas.tooltips: tooltip.hide()
-        self.tooltip = AxesTooltip(self.canvas, self.tooltiptext, self.centre)
+        if self.canvas.tooltip: self.canvas.tooltip.hide()
+        self.canvas.tooltip = AxesTooltip(self.canvas, self.tooltiptext, self.centre)
 
     def hidetooltip(self, event):
-        self.tooltip.hide()
+        self.canvas.tooltip.hide()
 
 class HistogramBar(SVG.RectangleObject):
     def __init__(self, gfd, i, colour="yellow"):
@@ -723,11 +723,11 @@ class HistogramBar(SVG.RectangleObject):
         self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        for tooltip in self.canvas.tooltips: tooltip.hide()
-        self.tooltip = AxesTooltip(self.canvas, self.tooltiptext, self.centre)
+        if self.canvas.tooltip: self.canvas.tooltip.hide()
+        self.canvas.tooltip = AxesTooltip(self.canvas, self.tooltiptext, self.centre)
 
     def hidetooltip(self, event):
-        self.tooltip.hide()
+        self.canvas.tooltip.hide()
 
 class HistogramBars(SVG.GroupObject):
     def __init__(self, gfd, colour="yellow"):
@@ -751,12 +751,12 @@ class NormalCurve(bryaxes.AxesPolyline):
         self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        for tooltip in self.canvas.tooltips: tooltip.hide()
+        if self.canvas.tooltip: self.canvas.tooltip.hide()
         (x, y) = self.canvas.getSVGcoords(event)
-        self.tooltip = AxesTooltip(self.canvas, self.tooltiptext, (x, -y))
+        self.canvas.tooltip = AxesTooltip(self.canvas, self.tooltiptext, (x, -y))
 
     def hidetooltip(self, event):
-        self.tooltip.hide()
+        self.canvas.tooltip.hide()
 
 
 class CumulativeFrequencyLine(bryaxes.AxesPolyline):
@@ -768,14 +768,14 @@ class CumulativeFrequencyLine(bryaxes.AxesPolyline):
         self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        for tooltip in self.canvas.tooltips: tooltip.hide()
+        if self.canvas.tooltip: self.canvas.tooltip.hide()
         (x, y) = self.canvas.getSVGcoords(event)
         n = int(3-log10(x))
         tooltiptext = f"{self.key}\nNumber of values < {x:.{n}f}: {-y:.0f}"
-        self.tooltip = AxesTooltip(self.canvas, tooltiptext, (x, -y))
+        self.canvas.tooltip = AxesTooltip(self.canvas, tooltiptext, (x, -y))
 
     def hidetooltip(self, event):
-        self.tooltip.hide()
+        self.canvas.tooltip.hide()
 
 class CumulativePercentageLine(bryaxes.AxesPolyline):
     def __init__(self, canvas, key, cfd, colour):
@@ -788,14 +788,14 @@ class CumulativePercentageLine(bryaxes.AxesPolyline):
         self.bind("mouseleave", self.hidetooltip)
 
     def showtooltip(self, event):
-        for tooltip in self.canvas.tooltips: tooltip.hide()
+        if self.canvas.tooltip: self.canvas.tooltip.hide()
         (x, y) = self.canvas.getSVGcoords(event)
         n = int(3-log10(x))
         tooltiptext = f"{self.key}\n%age of values < {x:.{n}f}: {-y:.0f}%"
-        self.tooltip = AxesTooltip(self.canvas, tooltiptext, (x, -y))
+        self.canvas.tooltip = AxesTooltip(self.canvas, tooltiptext, (x, -y))
 
     def hidetooltip(self, event):
-        self.tooltip.hide()
+        self.canvas.tooltip.hide()
 
 class DataTable(list):
     def __init__(self, csvfile=None, datasets="columns", headers=True):
