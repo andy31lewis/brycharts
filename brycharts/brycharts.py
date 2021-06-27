@@ -6,6 +6,7 @@
 # For details, see the LICENSE file in this repository                        #
 
 import time
+import json
 from collections import Counter
 from math import sin, cos, pi, log10, exp
 #import brySVG.dragcanvas as SVG
@@ -13,6 +14,7 @@ from . import dragcanvas as SVG
 from . import bryaxes
 from .roundfns import *
 from .statfns import *
+import browser.svg as svg
 
 DEFAULT_COLOURS = [f"hsl({a%360+22.5*(a//1080)},{(3-a//810)*100//3}%, 50%)" for a in range(0,2160,135)]
 BARUNIT = 10
@@ -407,6 +409,27 @@ class ScatterGraph(bryaxes.AxesCanvas):
             self.dataPoints = [DataPoint(self, None, coords, colour) for coords in data]
         self.container.attach(self.dataPoints)
 
+class BasicScatterGraph(bryaxes.AxesCanvas):
+    def __init__(self, parent, data, title="", colour="red", showregressionline=False, fontsize=14, width="95%", height="95%", objid=None):
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=False)
+        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=False)
+        super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
+        if showregressionline:
+            self.regressionLine = RegressionLine(self, data)
+            self.attachObject(self.regressionLine)
+        if isinstance(data, LabelledPairedData):
+            data = data.values()
+        basepoint = svg.circle(cx=0, cy=0, r=3, fill=colour, stroke="none")
+        self.dataPoints = []
+        for coords in data:
+            (x, y) = coords
+            #print("x, y", x, y)
+            point = basepoint.cloneNode(True)
+            (point.attrs["cx"], point.attrs["cy"]) = (x, y)
+            point.attrs["transform"] = f"translate({x},{y}) scale({self.xScaleFactor},{-self.yScaleFactor}) translate({-x},{-y})"
+            self.dataPoints.append(point)
+        self.container.attach(self.dataPoints)
+
 class MultiScatterGraph(bryaxes.AxesCanvas):
     def __init__(self, parent, data, title="", colours=None, showregressionlines=False, fontsize=14, width="95%", height="95%", objid=None):
         xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=True)
@@ -798,11 +821,19 @@ class CumulativePercentageLine(bryaxes.AxesPolyline):
         self.canvas.tooltip.hide()
 
 class DataTable(list):
-    def __init__(self, csvfile=None, datasets="columns", headers=True):
+    def __init__(self, csvfile=None, jsonfile=None, datasets="columns", headers=True):
         if csvfile:
             with open(csvfile) as datafile:
                 lines = datafile.readlines()
+            #datafile = open(csvfile)
+            #lines = datafile.readlines()
             data = [line.strip().split(",") for line in lines]
             data = [[convertifnumber(item) for item in row] for row in data]
+        elif jsonfile:
+            with open(jsonfile) as datafile:
+                data = json.load(datafile)
+            #datafile = open(jsonfile)
+            #data = json.load(datafile)
         fieldnames = data[0]
-        super().__init__([{key:value for key, value in zip(fieldnames, data[i])} for i in range(1, len(data))])
+        datalist = [{key:value for key, value in zip(fieldnames, data[i])} for i in range(1, len(data))]
+        super().__init__(datalist)
