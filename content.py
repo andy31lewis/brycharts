@@ -14,7 +14,7 @@ On the left of each page is:
 
 The data illustrated by these graphs is from the Numbeo website https://www.numbeo.com/cost-of-living/
 This gives information about average salaries and the cost of living in about 540 cities around the world.
-The table from which the graphs have been generated is shown on the next tab.
+The first 25 rows of the table from which the graphs have been generated is shown on the next tab.
 This is stored internally as a `list` of `dicts`: each row is a `dict` with the column headings as keys.
 """
 

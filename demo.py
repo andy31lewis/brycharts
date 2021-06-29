@@ -1,13 +1,15 @@
-from browser import document, html, window
 import time
-tt = time.time()
-import json
+#tt = time.time()
+from browser import document, html, window
+#print("import browser", time.time()-tt)
+#tt = time.time()
 import brywidgets as ws
+#print("import brywidgets", time.time()-tt)
+#tt = time.time()
 import brycharts
+#print("import brycharts", time.time()-tt)
 from content import *
 #import datetime
-#print("imports", time.time()-tt)
-tt = time.time()
 
 class ListDict(dict):
     def __getitem__(self, key):
@@ -44,9 +46,9 @@ class IntroPage(ws.NotebookPage):
 
 class DataTablePage(ws.NotebookPage):
     def __init__(self):
-        super().__init__("Data Table", "#fbb0b0", tabwidth="12%", id="datatable")
+        super().__init__("Data Table", "#fbd0d0", tabwidth="12%", id="datatable")
         lines = open("cost-of-living-2018.csv").readlines()
-        data = [line.strip().split(",") for line in lines]
+        data = [line.strip().split(",") for line in lines[:26]]
         self.attach(html.TABLE(
             html.TR(html.TH(header) for header in data[0]) +
             (html.TR(html.TD(field) for field in row) for row in data[1:])
@@ -96,10 +98,16 @@ brycharts.GroupedBarChart(self.chartbox, ldd, title, direction="horizontal", hei
 
     def update(self):
         if self.viewed: return
+        #tt = time.time()
         ldd = brycharts.LabelledDataDict(livingcostdata, "Cost Index")
+        #print("data", time.time()-tt)
+        #tt = time.time()
         title = "Breakdown of living costs in six cities"
         brycharts.StackedBarChart(self.chartbox, ldd, title, height="45%")
+        #print("graph", time.time()-tt)
+        #tt = time.time()
         brycharts.GroupedBarChart(self.chartbox, ldd, title, direction="horizontal", height="45%")
+        #print("graph", time.time()-tt)
         self.viewed = True
 
 class LineGraphPage(DemoPage):
@@ -115,14 +123,13 @@ brycharts.LineGraph(self.chartbox, paireddatadict, title)""")
     def update(self):
         if self.viewed: return
         title = "Change in rental costs over a 10 year period"
-        tt = time.time()
+        #tt = time.time()
         paireddatadict = brycharts.PairedDataDict("Year", "Monthly rent (€)", rentdata)
         #paireddatadict = brycharts.TimeSeriesDataDict("Year", "Monthly rent (€)", rentdata)
         #print("data", time.time()-tt)
-        tt = time.time()
+        #tt = time.time()
         brycharts.LineGraph(self.chartbox, paireddatadict, title)
         #print("graph", time.time()-tt)
-        tt = time.time()
         self.viewed = True
 
 class ScattergraphPage(DemoPage):
@@ -143,9 +150,15 @@ brycharts.ScatterGraph(self.chartbox, lpd, showregressionline=True)""")
 
     def update(self):
         if self.viewed: return
+        #tt = time.time()
         lpd = brycharts.LabelledPairedData("Average Salary Index", "Total Cost of Living Index", salaryvscostsdata)
+        #print("data", time.time()-tt)
+        #tt = time.time()
         title = "Salaries and Living Costs for towns/cities in the UK"
-        brycharts.ScatterGraph(self.chartbox, lpd, title, showregressionline=True)
+        sg = brycharts.ScatterGraph(self.chartbox, lpd, title, showregressionline=True)
+        #print("graph", time.time()-tt)
+        #sg.xAxis.minorGrid.style.visibility = "hidden"
+        #sg.yAxis.minorGrid.style.visibility = "hidden"
         self.viewed = True
 
 class BoxPlotPage(DemoPage):
@@ -166,9 +179,13 @@ brycharts.BoxPlotCanvas(self.chartbox, bpdd, title)""")
 
     def update(self):
         if self.viewed: return
+        #tt = time.time()
         bpdd = brycharts.BoxPlotDataDict("Local Purchasing Power Index", rawdatadict=purchasingpowerdict)
+        #print("data", time.time()-tt)
+        #tt = time.time()
         title = "Comparison of Purchasing Power in three countries"
         brycharts.BoxPlotCanvas(self.chartbox, bpdd, title)
+        #print("graph", time.time()-tt)
         self.viewed = True
 
 class CumulativePercentagePage(DemoPage):
@@ -190,10 +207,14 @@ brycharts.CumulativePercentageGraph(self.chartbox, cfd, title)""")
 
     def update(self):
         if self.viewed: return
+        #tt = time.time()
         cfd = brycharts.CumulativeFrequencyDataDict(valueslabel="Local Purchasing Power Index", rawdatadict=purchasingpowerdict,
                                                     boundaries = [60, 80, 100, 110, 120, 125, 130, 135, 140, 150, 160, 180])
+        #print("data", time.time()-tt)
+        #tt = time.time()
         title = "Comparison of Purchasing Power in three countries"
         brycharts.CumulativePercentageGraph(self.chartbox, cfd, title)
+        #print("graph", time.time()-tt)
         self.viewed = True
 
 class HistogramPage(DemoPage):
@@ -217,11 +238,19 @@ brycharts.Histogram(self.chartbox, gfd2, title, shownormalcurve=True, height="45
     def update(self):
         if self.viewed: return
         title = "Purchasing Power in towns/cities in the USA"
+        #tt = time.time()
         gfd1 = brycharts.GroupedFrequencyData("Local Purchasing Power Index", rawdata=USpurchasingpower)
+        #print("data", time.time()-tt)
+        #tt = time.time()
         brycharts.Histogram(self.chartbox, gfd1, title, height="45%")
+        #print("graph", time.time()-tt)
+        #tt = time.time()
         gfd2 = brycharts.GroupedFrequencyData("Local Purchasing Power Index", rawdata=USpurchasingpower,
                                                 boundaries = [60, 80, 100, 110, 120, 125, 130, 135, 140, 150, 160, 180])
+        #print("data", time.time()-tt)
+        #tt = time.time()
         brycharts.Histogram(self.chartbox, gfd2, title, shownormalcurve=True, height="45%")
+        #print("graph", time.time()-tt)
         self.viewed = True
 
 def formatted(inputstring):
@@ -255,26 +284,14 @@ def formatted(inputstring):
             output.append(html.P(s))
     return output
 
-def getalldata():
-    with open("cost-of-living-data.json") as f:
-        data = json.load(f)
-    headings = data[0]
-    return [{key:value for key, value in zip(headings, data[i])} for i in range(1, len(data))]
-
-def gethistoricaldata():
-    with open("rent-costs.json") as f:
-        data = json.load(f)
-    headings = data[0]
-    #headings = [datetime.datetime(2021,6,8,8,15,0) + datetime.timedelta(minutes=6*i) for i in range(12)]
-    rentdata = {}
-    for row in data[1:]:
-        rentdata[row[0]] = [(year, value) for (year, value) in zip(headings[1:], row[1:]) if value != "NaN"]
-    return rentdata
+#tt = time.time()
+#datatable = brycharts.DataTable(csvfile="cost-of-living-2018.csv")
+#datatable = brycharts.DataTable(jsonfile="cost-of-living-data.json")
+from datatable import datatable
+#print("get datatable", time.time()-tt)
+#tt = time.time()
 
 # Get data for pie charts
-datatable = brycharts.DataTable(csvfile="cost-of-living-2018.csv")
-
-#alldata = getalldata()
 continentlist = [row["Continent"] for row in datatable]
 
 # Get data for bar charts
@@ -284,7 +301,7 @@ livingcostdata = {field:{row["City"]:row[field] for row in datatable if row["Cit
                     for field in fields}
 
 # Get data for line graphs
-rentdata = gethistoricaldata()
+from rentdata import rentdata
 
 # Get data for scattergraph
 salaryvscostsdata = {row["City"]:(row["Average Disposable Salary Index"], row["Cost of Living plus Rent Index"])
@@ -295,11 +312,16 @@ countrylist = ["United Kingdom", "Germany", "United States"]
 purchasingpowerdict = {country: [row["Local Purchasing Power Index"] for row in datatable if row["Country"] == country]
                         for country in countrylist}
 USpurchasingpower = purchasingpowerdict["United States"]
+#print("extract data", time.time()-tt)
+#tt = time.time()
 
 pages = [IntroPage(), DataTablePage(), PieChartPage(), BarChartPage(), LineGraphPage(), ScattergraphPage(), BoxPlotPage(), HistogramPage(), CumulativePercentagePage()]
+#print("construct pages", time.time()-tt)
+#tt = time.time()
 document["body"].innerHTML = ""
 notebook = ws.Notebook(pages)
 document <= notebook
 pageheight = f"calc(100vh - {notebook.tabrow.offsetHeight}px)"
 for page in pages: page.style.height = pageheight
+#print("complete setup", time.time()-tt)
 

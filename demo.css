@@ -73,7 +73,9 @@ svg {
 
 table {
     border-collapse: collapse;
-    background-color: #fbb0b0;
+    background-color: #fbd0d0;
+    font-size: inherit;
+    margin: auto;
 }
 
 td, th {
