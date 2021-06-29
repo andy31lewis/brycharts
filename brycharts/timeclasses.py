@@ -1,11 +1,10 @@
 import datetime, math
-from functools import total_ordering
 
 timeunits = ["year", "month", "day", "hour", "minute", "second"]
 timeformats = ["%d/%m/%y", "%d/%m/%y", "%H:%M\n%d/%m", "%H:%M", "%H:%M", "%H:%M:%S"]
 timefactors = [1,12,30,24,60,60]
 
-@total_ordering
+#@total_ordering
 class TimeCoord():
     startfloat = 0
     scalefloat = 1
@@ -38,6 +37,15 @@ class TimeCoord():
 
     def __lt__(self, other):
         return float(self) < float(other)
+
+    def __le__(self, other):
+        return float(self) <= float(other)
+
+    def __gt__(self, other):
+        return float(self) > float(other)
+
+    def __ge__(self, other):
+        return float(self) >= float(other)
 
     def __eq__(self, other):
         return self.asDatetime == other.asDatetime

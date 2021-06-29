@@ -7,9 +7,7 @@
 
 import time
 import json
-from collections import Counter
 from math import sin, cos, pi, log10, exp
-#import brySVG.dragcanvas as SVG
 from . import dragcanvas as SVG
 from . import bryaxes
 from .roundfns import *
@@ -58,7 +56,14 @@ class FrequencyData(LabelledData):
         super().__init__(data, valueslabel)
 
     def fromRawData(self, rawdata):
-        return sorted(Counter(rawdata).items())
+        #return sorted(Counter(rawdata).items())
+        counter = {}
+        for x in rawdata:
+            if x in counter:
+                counter[x] += 1
+            else:
+                counter[x] = 1
+        return sorted(counter.items())
 
 class FrequencyDataDict(LabelledDataDict):
     def __init__(self, datadict=None, rawdatadict=None, valueslabel="Frequency"):
@@ -421,9 +426,7 @@ class BasicScatterGraph(bryaxes.AxesCanvas):
             data = data.values()
         basepoint = svg.circle(cx=0, cy=0, r=3, fill=colour, stroke="none")
         self.dataPoints = []
-        for coords in data:
-            (x, y) = coords
-            #print("x, y", x, y)
+        for (x, y) in data:
             point = basepoint.cloneNode(True)
             (point.attrs["cx"], point.attrs["cy"]) = (x, y)
             point.attrs["transform"] = f"translate({x},{y}) scale({self.xScaleFactor},{-self.yScaleFactor}) translate({-x},{-y})"
