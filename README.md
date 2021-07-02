@@ -39,19 +39,19 @@ https://andy31lewis.github.io/brycharts/demo.html
 
 In order to display our data graphically, we first need to gather it into a suitable data structure. The following table lists the types of chart available (using their class names), and the data structures which can be used as input for each type of chart.
 
-| **Type of chart**         | **Suitable data structure(s)**                               |
-| ------------------------- | ------------------------------------------------------------ |
-| PieChart                  | LabelledData, FrequencyData                                  |
-| BarChart                  | LabelledData, FrequencyData                                  |
-| StackedBarChart           | LabelledDataDict, FrequencyDataDict                          |
-| GroupedBarChart           | LabelledDataDict, FrequencyDataDict                          |
-| ScatterGraph              | PairedData, LabelledPairedData                               |
-| MultiScatterGraph         | PairedDataDict, LabelledPairedDataDict                       |
-| LineGraph                 | PairedData, PairedDataDict, TimeSeriesData, TimeSeriesDataDict |
-| BoxPlotCanvas             | BoxPlotData, BoxPlotDataDict                                 |
-| Histogram                 | GroupedFrequencyData                                         |
-| CumulativeFrequencyGraph  | CumulativeFrequencyData, CumulativeFequencyDataDict          |
-| CumulativePercentageGraph | CumulativeFrequencyData, CumulativeFequencyDataDict          |
+| **Type of chart**               | **Suitable data structure(s)**                               |
+| ------------------------------- | ------------------------------------------------------------ |
+| PieChart                        | LabelledData, FrequencyData                                  |
+| BarChart                        | LabelledData, FrequencyData                                  |
+| StackedBarChart                 | LabelledDataDict, FrequencyDataDict                          |
+| GroupedBarChart                 | LabelledDataDict, FrequencyDataDict                          |
+| ScatterGraph, BasicScatterGraph | PairedData, LabelledPairedData                               |
+| MultiScatterGraph               | PairedDataDict, LabelledPairedDataDict                       |
+| LineGraph                       | PairedData, PairedDataDict, TimeSeriesData, TimeSeriesDataDict |
+| BoxPlotCanvas                   | BoxPlotData, BoxPlotDataDict                                 |
+| Histogram                       | GroupedFrequencyData                                         |
+| CumulativeFrequencyGraph        | CumulativeFrequencyData, CumulativeFequencyDataDict          |
+| CumulativePercentageGraph       | CumulativeFrequencyData, CumulativeFequencyDataDict          |
 
 ## Data Structures
 
@@ -216,10 +216,16 @@ All the charts share some common parameters, as follows:
 `parent`: The element in the document into which the chart should be placed.  
 `data`: One of the data structures listed above, which will be used to draw the chart.  
 `title`: (optional) A title to appear above the chart. Default is no title.  
-`fontsize`: (optional) Font size for labels, keys and tooltips. Default is 14px. 
+`fontsize`: (optional) Font size for chart labels, keys and tooltips. Default is 14px. 
 `width`: (optional) CSS width of the chart. Default is `"95%"`.  
 `height`: (optional) CSS height of the chart. Default is `"95%"`.  
 `objid`: (optional) HTML `id` for the chart.  Default is no id.
+
+`xaxisoptions`,  `yaxisoptions`, `axisoptions`: Axis are drawn with default settings.  One or more of these can be changed by specifying new values as a dictionary.  The default settings are:  
+`{"showAxis":True, "showArrow":False, "fontSize":12,   
+ "showScale":True, "scaleInterval":None, "majorDivisor":None, "minorDivisor":None,  
+ "showMajorTicks":True, "showMinorTicks":True, "showMajorGrid":True, "showMinorGrid":False}`  
+(Note that `fontSize` here is for the scale and label on the *axes*, as opposed to `fontsize` above.)
 
 
 
@@ -234,7 +240,7 @@ Parameters:
 
 
 
-**`BarChart(parent, data, title="", colour="yellow", fontsize=14, width="95%", height="95%", objid=None)`**
+**`BarChart(parent, data, title="", colour="yellow", fontsize=14, axisoptions={}, width="95%", height="95%", objid=None)`**
 
 Parameters:  
 `data`: Either a `LabelledData` or a `FrequencyData` object.  
@@ -242,7 +248,7 @@ Parameters:
 
 (For details of the other parameters, see **Common Parameters** above.)
 
-**`StackedBarChart(parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None)`**
+**`StackedBarChart(parent, data, title="", colours=None, fontsize=14, axisoptions={}, width="95%", height="95%", objid=None)`**
 
 Parameters:  
 `data`: Either a `LabelledDataDict` or a `FrequencyDataDict` object.  
@@ -250,7 +256,7 @@ Parameters:
 
 (For details of the other parameters, see **Common Parameters** above.)
 
-**`GroupedBarChart(parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None)`**
+**`GroupedBarChart(parent, data, title="", colours=None, fontsize=14, axisoptions={}, width="95%", height="95%", objid=None)`**
 
 Parameters:  
 `data`: Either a `LabelledDataDict` or a `FrequencyDataDict` object.  
@@ -260,7 +266,9 @@ Parameters:
 
 
 
-**`ScatterGraph(parent, data, title="", colour="red", showregressionline=False, fontsize=14, width="95%", height="95%", objid=None)`**
+**`ScatterGraph(parent, data, title="", colour="red", showregressionline=False, fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None)`**
+
+**`BasicScatterGraph(parent, data, title="", colour="red", showregressionline=False, fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None)`**
 
 Parameters:  
 `data`: Either a `PairedData` or a `LabelledPairedData` object.  
@@ -269,9 +277,11 @@ Parameters:
 
 (For details of the other parameters, see **Common Parameters** above.)
 
+(NB Use a `BasicScatterGraph` for large datasets (~300 points or more) - the points are plotted much faster, but have no tooltips.)
 
 
-**`MultiScatterGraph(parent, data, title="", colours=None, showregressionlines=False, fontsize=14, width="95%", height="95%", objid=None)`**
+
+**`MultiScatterGraph(parent, data, title="", colours=None, showregressionlines=False, fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None)`**
 
 More than one scattergraph on the same axes, each with its own regression line (if desired).  
 Parameters:  
@@ -284,7 +294,7 @@ If the value is `True` for a given scattergraph,  the (linear) regression line o
 
 
 
-**`LineGraph(parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None)`**
+**`LineGraph(parent, data, title="", colours=None, fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None)`**
 
 Parameters:  
 `data`: Either a `PairedData` or a `PairedDataDict` object.  
@@ -294,7 +304,7 @@ Parameters:
 
 
 
-**`BoxPlotCanvas(parent, data, title="", colour="yellow", fontsize=14, width="95%", height="95%", objid=None)`**
+**`BoxPlotCanvas(parent, data, title="", colour="yellow", fontsize=14, axisoptions={}, width="95%", height="95%", objid=None)`**
 
 Parameters:  
 `data`: Either a `BoxPlotData` or a `BoxPlotDataDict` object.  
@@ -304,7 +314,7 @@ Parameters:
 
 
 
-**`Histogram(parent, data, title="", colour="yellow", fontsize=14, width="95%", height="95%", objid=None)`**
+**`Histogram(parent, data, title="", colour="yellow", fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None)`**
 
 Parameters:  
 `data`: A `GroupedFrequencyData` object.  
@@ -314,9 +324,9 @@ Parameters:
 
 
 
-**`CumulativeFrequencyGraph(parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None)`**
+**`CumulativeFrequencyGraph(parent, data, title="", colours=None, fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None)`**
 
-**`CumulativePercentageGraph(parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None)`**
+**`CumulativePercentageGraph(parent, data, title="", colours=None, fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None)`**
 
 Parameters:  
 `data`: Either a `CumlativeFrequencyData` or a `CumlativeFrequencyDataDict` object.  

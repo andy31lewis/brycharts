@@ -213,7 +213,8 @@ brycharts.CumulativePercentageGraph(self.chartbox, cfd, title)""")
         #print("data", time.time()-tt)
         #tt = time.time()
         title = "Comparison of Purchasing Power in three countries"
-        brycharts.CumulativePercentageGraph(self.chartbox, cfd, title)
+        smg = {"showMinorGrid": True, "showArrow":True}
+        brycharts.CumulativePercentageGraph(self.chartbox, cfd, title, xaxisoptions=smg, yaxisoptions=smg)
         #print("graph", time.time()-tt)
         self.viewed = True
 

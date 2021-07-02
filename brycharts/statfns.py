@@ -5,8 +5,6 @@
 # --------------------------------------------------------------------------- #
 # For details, see the LICENSE file in this repository                        #
 
-from math import ceil, sqrt
-
 def mean(values):
     return sum(values)/len(values)
 

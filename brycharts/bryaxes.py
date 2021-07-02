@@ -8,11 +8,31 @@
 #Routines connected with actually drawing the axes.
 
 import time
-from math import log10
-from . import dragcanvas as SVG
+from math import log10, floor, ceil
 import browser.svg as svg
-from .roundfns import *
+from . import dragcanvas as SVG
 from .timeclasses import *
+
+def rounddown (x, n):
+    return floor(x/n) * n
+
+def roundup (x, n):
+    return ceil(x/n) * n
+
+def getscaleintervals (xmin, xmax, mindivs):
+    interval = xmax - xmin
+    if interval == 0: return 1, 1, 1
+    if mindivs < 2: return interval, interval, interval
+    X = interval/(mindivs - 1)
+    L = 10**floor(log10(X))
+    xx = X / L
+    Y = 1 if xx<=2 else 2 if xx<=5 else 5 if xx<=10 else 10
+    scaleinterval = Y * L
+    if Y  in {1, 2, 10}:
+        majordivisor, minordivisor = 2, 5
+    elif Y == 5:
+        majordivisor, minordivisor = 1, 5
+    return scaleinterval, majordivisor, minordivisor
 
 class ScaledObjectMixin():
     def rescale(self, canvas):
@@ -73,25 +93,23 @@ class AxesGroup(svg.g):
         if objid: self.id = objid
 
 class Axis(object):
-    def __init__(self, Min, Max, label, fontsize=12,
-                    scaleInterval=None, majorDivisor=None, minorDivisor=None,
-                    showScale=True, showMajorTicks=True, showMinorTicks=True, showMajorGrid=True, showMinorGrid=True,
-                    showArrow=False, showAxis=True, axisType="float"):
-        self.min = Min
-        self.max = Max
-        self.label = label if label else ""
-        self.fontsize = fontsize
-        for argname in self.__init__.__code__.co_varnames[4:]:
-            setattr(self, argname, locals()[argname])
-        self.calculateDefaultTicks(5)
-        self.min = roundtimedown(Min, self.scaleInterval) if self.axisType == "time" else rounddown(Min, self.scaleInterval)
-        self.max = roundtimeup(Max, self.scaleInterval) if self.axisType == "time" else roundup(Max, self.scaleInterval)
+    def __init__(self, minvalue, maxvalue, label="", axisoptions={}):
+        defaults = {"showAxis":True, "axisType":"float", "showArrow":False, "fontSize":12,
+                    "showScale":True, "scaleInterval":None, "majorDivisor":None, "minorDivisor":None,
+                    "showMajorTicks":True, "showMinorTicks":True, "showMajorGrid":True, "showMinorGrid":False}
+        self.label = label
+        defaults.update(axisoptions)
+        for argname, value in defaults.items():
+            setattr(self, argname, value)
+        self.calculateDefaultTicks(minvalue, maxvalue, 5)
+        self.min = roundtimedown(minvalue, self.scaleInterval) if self.axisType == "time" else rounddown(minvalue, self.scaleInterval)
+        self.max = roundtimeup(maxvalue, self.scaleInterval) if self.axisType == "time" else roundup(maxvalue, self.scaleInterval)
 
-    def calculateDefaultTicks(self, mindivs):
+    def calculateDefaultTicks(self, minvalue, maxvalue, mindivs):
         if self.axisType == "time":
-            self.scaleInterval, self.majorDivisor, self.minorDivisor = gettimescaleintervals(self.min, self.max, mindivs)
+            self.scaleInterval, self.majorDivisor, self.minorDivisor = gettimescaleintervals(minvalue, maxvalue, mindivs)
         else:
-            self.scaleInterval, self.majorDivisor, self.minorDivisor = getscaleintervals(self.min, self.max, mindivs)
+            self.scaleInterval, self.majorDivisor, self.minorDivisor = getscaleintervals(minvalue, maxvalue, mindivs)
         #print(self.scaleInterval, self.majorTickInterval, self.minorTickInterval)
 
 class BasicAxis(AxesGroup):
@@ -100,13 +118,13 @@ class BasicAxis(AxesGroup):
         axismin, axismax = float(axis.min), float(axis.max)
         if axis.direction == "x":
             self.attach([AxesLine([(axismin, axis.position), (axismax, axis.position)]),
-                         AxesTextObject(canvas, axis.label, (axismax, axis.position-3*axis.tickLength), 3, fontsize=axis.fontsize)])
+                         AxesTextObject(canvas, axis.label, (axismax, axis.position-3*axis.tickLength), 3, fontsize=axis.fontSize)])
             if axis.showArrow:
                 self.attach([AxesLine([(axismax, axis.position), (axismax-axis.arrowLength, axis.position-axis.tickLength)]),
                              AxesLine([(axismax, axis.position), (axismax-axis.arrowLength, axis.position+axis.tickLength)])])
         else:
             self.attach([AxesLine([(axis.position, axismin), (axis.position, axismax)]),
-                         AxesTextObject(canvas, axis.label, (axis.position, axismax), 7, fontsize=axis.fontsize)])
+                         AxesTextObject(canvas, axis.label, (axis.position, axismax), 7, fontsize=axis.fontSize)])
             if axis.showArrow:
                 self.attach([AxesLine([(axis.position, axismax), (axis.position-axis.tickLength, axismax-axis.arrowLength)]),
                              AxesLine([(axis.position, axismax), (axis.position+axis.tickLength, axismax-axis.arrowLength)])])
@@ -147,9 +165,9 @@ class ScaleValues(AxesGroup):
                 n = int(1-log10(axis.scaleInterval))
                 scalestring=str(v) if axis.axisType=="time" else str(int(v)) if int(v) == v else f"{v:.{n}f}"
                 if axis.direction == "x":
-                    self.attach(AxesTextObject(canvas, scalestring, (v1, axis.position-axis.tickLength), 2, fontsize=12))
+                    self.attach(AxesTextObject(canvas, scalestring, (v1, axis.position-axis.tickLength), 2, fontsize=axis.fontSize))
                 else:
-                    self.attach(AxesTextObject(canvas, scalestring, (axis.position-axis.tickLength, v1), 6, fontsize=12))
+                    self.attach(AxesTextObject(canvas, scalestring, (axis.position-axis.tickLength, v1), 6, fontsize=axis.fontSize))
             v += axis.scaleInterval
         axis.axisObjects.attach(self)
 
@@ -247,8 +265,8 @@ class AxesCanvas(SVG.CanvasObject):
         if xmax <= xmin or ymax <= ymin: return
         self.setViewBox([(xmin, -ymax), (xmax, -ymin)])
         (xAxis.direction, yAxis.direction) = ("x", "y")
-        xAxis.tickLength = yAxis.arrowLength = 0.75*xAxis.fontsize*self.yScaleFactor
-        yAxis.tickLength = xAxis.arrowLength = 0.75*yAxis.fontsize*self.xScaleFactor
+        xAxis.tickLength = yAxis.arrowLength = 0.75*xAxis.fontSize*self.yScaleFactor
+        yAxis.tickLength = xAxis.arrowLength = 0.75*yAxis.fontSize*self.xScaleFactor
         xAxis.position = ymin if ymin > 0 else ymax if ymax < 0 else 0
         yAxis.position = xmin if xmin > 0 else xmax if xmax < 0 else 0
         xAxis.omitScale = yAxis.position if yAxis.showAxis and ymin < xAxis.position else None
@@ -265,11 +283,12 @@ class AxesCanvas(SVG.CanvasObject):
             axismin, axismax = float(axis.min), float(axis.max)
             majortickinterval = float(axis.scaleInterval)/axis.majorDivisor
             count = int(round((axismax - axismin)/majortickinterval))
-            axis.majorTickValues = [axismin + i*majortickinterval for i in range(count+1)]
+            majorcount = count if axis.showArrow else count + 1
+            axis.majorTickValues = [axismin + i*majortickinterval for i in range(majorcount)]
             if axis.showMinorTicks or axis.showMinorGrid:
                 minortickinterval = majortickinterval/axis.minorDivisor
                 count = count*axis.minorDivisor
-                axis.minorTickValues = [axismin + i*minortickinterval for i in range(count+1) if i%axis.minorDivisor != 0]
+                axis.minorTickValues = [axismin + i*minortickinterval for i in range(count) if i%axis.minorDivisor != 0]
 
             if axis.showMinorTicks and minortickinterval > 0.5*axis.arrowLength:
                 axis.minorTicks = Ticks(axis, "minor")
@@ -293,5 +312,5 @@ class AxesCanvas(SVG.CanvasObject):
         self.xAxis = xAxis
         self.yAxis = yAxis
         if self.title:
-            self.attachObject(AxesTextObject(self, self.title, ((xmin+xmax)/2, ymax+1.5*yAxis.fontsize*self.yScaleFactor), 8, yAxis.fontsize*1.25))
+            self.attachObject(AxesTextObject(self, self.title, ((xmin+xmax)/2, ymax+1.5*yAxis.fontSize*self.yScaleFactor), 8, yAxis.fontSize*1.25))
         self.fitContents()

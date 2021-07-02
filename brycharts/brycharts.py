@@ -7,16 +7,35 @@
 
 import time
 import json
-from math import sin, cos, pi, log10, exp
+from math import sin, cos, pi, log10, exp, floor, ceil
 from . import dragcanvas as SVG
 from . import bryaxes
-from .roundfns import *
 from .statfns import *
 import browser.svg as svg
 
 DEFAULT_COLOURS = [f"hsl({a%360+22.5*(a//1080)},{(3-a//810)*100//3}%, 50%)" for a in range(0,2160,135)]
 BARUNIT = 10
 
+def rounddown (x, n):
+    return floor(x/n) * n
+
+def roundup (x, n):
+    return ceil(x/n) * n
+
+def getscaleintervals (xmin, xmax, mindivs):
+    interval = xmax - xmin
+    if interval == 0: return 1, 1, 1
+    if mindivs < 2: return interval, interval, interval
+    X = interval/(mindivs - 1)
+    L = 10**floor(log10(X))
+    xx = X / L
+    Y = 1 if xx<=2 else 2 if xx<=5 else 5 if xx<=10 else 10
+    scaleinterval = Y * L
+    if Y  in {1, 2, 10}:
+        majordivisor, minordivisor = 2, 5
+    elif Y == 5:
+        majordivisor, minordivisor = 1, 5
+    return scaleinterval, majordivisor, minordivisor
 
 # Classes which provide the data structures needed as inputs for the graphs
 
@@ -331,10 +350,10 @@ class PieChart(SVG.CanvasObject):
         if self.tooltip: self.tooltip.hide()
 
 class BarChart(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", direction="vertical", colour="yellow", fontsize=14, width="95%", height="95%", objid=None):
-        xaxis = bryaxes.Axis(0, BARUNIT*len(data), label=None, showScale=False,
-                            showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
-        yaxis = bryaxes.Axis(0, data.maxValue, data.valuesLabel)
+    def __init__(self, parent, data, title="", direction="vertical", colour="yellow", fontsize=14, axisoptions={}, width="95%", height="95%", objid=None):
+        xaxisoptions = {"showScale":False, "showMajorTicks":False, "showMinorTicks":False, "showMajorGrid":False}
+        xaxis = bryaxes.Axis(0, BARUNIT*len(data), "", xaxisoptions)
+        yaxis = bryaxes.Axis(0, data.maxValue, data.valuesLabel, axisoptions)
         if direction == "horizontal": xaxis, yaxis = yaxis, xaxis
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         self.attachObject(Bars(self, data, direction=direction, colour=colour))
@@ -347,11 +366,11 @@ class BarChart(bryaxes.AxesCanvas):
         self.fitContents()
 
 class StackedBarChart(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", direction="vertical", colours=None, fontsize=14, width="95%", height="95%", objid=None):
+    def __init__(self, parent, data, title="", direction="vertical", colours=None, fontsize=14, axisoptions={}, width="95%", height="95%", objid=None):
         if not colours: colours = DEFAULT_COLOURS
-        xaxis = bryaxes.Axis(0, BARUNIT*len(data.labels), label="", showScale=False,
-                            showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
-        yaxis = bryaxes.Axis(0, data.maxSum, data.valuesLabel)
+        xaxisoptions = {"showScale":False, "showMajorTicks":False, "showMinorTicks":False, "showMajorGrid":False}
+        xaxis = bryaxes.Axis(0, BARUNIT*len(data.labels), "", xaxisoptions)
+        yaxis = bryaxes.Axis(0, data.maxSum, data.valuesLabel, axisoptions)
         if direction == "horizontal": xaxis, yaxis = yaxis, xaxis
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         for i, key in enumerate(data.keys()):
@@ -374,11 +393,11 @@ class StackedBarChart(bryaxes.AxesCanvas):
         self.bestFit = self.fitContents()
 
 class GroupedBarChart(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", direction="vertical", colours=None, fontsize=14, width="95%", height="95%", objid=None):
+    def __init__(self, parent, data, title="", direction="vertical", colours=None, fontsize=14, axisoptions={}, width="95%", height="95%", objid=None):
         if not colours: colours = DEFAULT_COLOURS
-        xaxis = bryaxes.Axis(0, BARUNIT*len(data.labels), label="", showScale=False,
-                            showMajorTicks=False, showMinorTicks=False, showMajorGrid=False, showMinorGrid=False)
-        yaxis = bryaxes.Axis(0, data.maxValue, data.valuesLabel)
+        xaxisoptions = {"showScale":False, "showMajorTicks":False, "showMinorTicks":False, "showMajorGrid":False}
+        xaxis = bryaxes.Axis(0, BARUNIT*len(data.labels), "", xaxisoptions)
+        yaxis = bryaxes.Axis(0, data.maxValue, data.valuesLabel, axisoptions)
         if direction == "horizontal": xaxis, yaxis = yaxis, xaxis
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         for i, key in enumerate(data.keys()):
@@ -401,9 +420,9 @@ class GroupedBarChart(bryaxes.AxesCanvas):
         self.bestFit = self.fitContents()
 
 class ScatterGraph(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colour="red", showregressionline=False, fontsize=14, width="95%", height="95%", objid=None):
-        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=True)
-        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=True)
+    def __init__(self, parent, data, title="", colour="red", showregressionline=False, fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None):
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, xaxisoptions)
+        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, yaxisoptions)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         if showregressionline:
             self.regressionLine = RegressionLine(self, data)
@@ -415,9 +434,9 @@ class ScatterGraph(bryaxes.AxesCanvas):
         self.container.attach(self.dataPoints)
 
 class BasicScatterGraph(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colour="red", showregressionline=False, fontsize=14, width="95%", height="95%", objid=None):
-        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=False)
-        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=False)
+    def __init__(self, parent, data, title="", colour="red", showregressionline=False, fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None):
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, xaxisoptions)
+        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, yaxisoptions)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         if showregressionline:
             self.regressionLine = RegressionLine(self, data)
@@ -434,9 +453,9 @@ class BasicScatterGraph(bryaxes.AxesCanvas):
         self.container.attach(self.dataPoints)
 
 class MultiScatterGraph(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colours=None, showregressionlines=False, fontsize=14, width="95%", height="95%", objid=None):
-        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=True)
-        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=True)
+    def __init__(self, parent, data, title="", colours=None, showregressionlines=False, fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None):
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, xaxisoptions)
+        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, yaxisoptions)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         if not colours: colours = DEFAULT_COLOURS
         if showregressionlines==True: showregressionlines = [True]*len(data)
@@ -462,11 +481,11 @@ class MultiScatterGraph(bryaxes.AxesCanvas):
         self.bestFit = self.fitContents()
 
 class LineGraph(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None):
+    def __init__(self, parent, data, title="", colours=None, fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None):
         tt = time.time()
-        xaxistype = "time" if isinstance(data, (TimeSeriesData, TimeSeriesDataDict)) else "float"
-        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, showMajorGrid=True, showMinorGrid=False, axisType=xaxistype)
-        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, showMajorGrid=True, showMinorGrid=False)
+        xaxisoptions["axisType"] = "time" if isinstance(data, (TimeSeriesData, TimeSeriesDataDict)) else "float"
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.xLabel, xaxisoptions)
+        yaxis = bryaxes.Axis(data.yMin, data.yMax, data.yLabel, yaxisoptions)
         #print("axes", time.time()-tt)
         tt = time.time()
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
@@ -498,10 +517,10 @@ class LineGraph(bryaxes.AxesCanvas):
         tt = time.time()
 
 class BoxPlotCanvas(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colour="yellow", fontsize=14, width="95%", height="95%", objid=None):
+    def __init__(self, parent, data, title="", colour="yellow", fontsize=14, axisoptions={}, width="95%", height="95%", objid=None):
         if isinstance(data, BoxPlotData): data = BoxPlotDataDict(data.valuesLabel, {"":data})
-        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.valuesLabel)
-        yaxis = bryaxes.Axis(0, 50*len(data), "", showAxis=False, showMajorTicks=False, showMinorTicks=False)
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.valuesLabel, axisoptions)
+        yaxis = bryaxes.Axis(0, 50*len(data), "", {"showAxis":False})
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         self.fitContents()
         yheight = 25
@@ -512,19 +531,19 @@ class BoxPlotCanvas(bryaxes.AxesCanvas):
         self.bestFit = self.fitContents()
 
 class Histogram(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", shownormalcurve=False, colour="yellow", fontsize=14, width="95%", height="95%", objid=None):
-        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.valuesLabel)
-        yaxis = bryaxes.Axis(0, data.maxFrequencyDensity, "Frequency density")
+    def __init__(self, parent, data, title="", shownormalcurve=False, colour="yellow", fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None):
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.valuesLabel, xaxisoptions)
+        yaxis = bryaxes.Axis(0, data.maxFrequencyDensity, "Frequency density", yaxisoptions)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         self.attachObject(HistogramBars(data, colour))
         if shownormalcurve:
             self.attachObject(NormalCurve(self, data))
 
 class CumulativeFrequencyGraph(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None):
+    def __init__(self, parent, data, title="", colours=None, fontsize=14, xaxisoptions={}, axisoptions={}, width="95%", height="95%", objid=None):
         if isinstance(data, CumulativeFrequencyData): data = CumulativeFrequencyDataDict(data.valuesLabel, {"":data})
-        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.valuesLabel, showMajorGrid=True, showMinorGrid=True)
-        yaxis = bryaxes.Axis(0, data.maxTotalFrequency, "Cumulative frequency", showMajorGrid=True, showMinorGrid=True)
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.valuesLabel, xaxisoptions)
+        yaxis = bryaxes.Axis(0, data.maxTotalFrequency, "Cumulative frequency", yaxisoptions)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         if not colours: colours = DEFAULT_COLOURS
         for i, (key, cfd) in enumerate(data.items()):
@@ -542,10 +561,10 @@ class CumulativeFrequencyGraph(bryaxes.AxesCanvas):
             self.bestFit = self.fitContents()
 
 class CumulativePercentageGraph(bryaxes.AxesCanvas):
-    def __init__(self, parent, data, title="", colours=None, fontsize=14, width="95%", height="95%", objid=None):
+    def __init__(self, parent, data, title="", colours=None, fontsize=14, xaxisoptions={}, yaxisoptions={}, width="95%", height="95%", objid=None):
         if isinstance(data, CumulativeFrequencyData): data = CumulativeFrequencyDataDict(data.valuesLabel, {"":data})
-        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.valuesLabel, showMajorGrid=True, showMinorGrid=True)
-        yaxis = bryaxes.Axis(0, 100, "Cumulative percentage", showMajorGrid=True, showMinorGrid=True)
+        xaxis = bryaxes.Axis(data.xMin, data.xMax, data.valuesLabel, xaxisoptions)
+        yaxis = bryaxes.Axis(0, 100, "Cumulative percentage", yaxisoptions)
         super().__init__(parent, width, height, xAxis=xaxis, yAxis=yaxis, title=title, objid=objid)
         if not colours: colours = DEFAULT_COLOURS
         for i, (key, cfd) in enumerate(data.items()):
